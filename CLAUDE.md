@@ -73,6 +73,52 @@ If you edit files on `main` and then try to commit, the hook will block you. Bra
 
 ---
 
+## Agent Contract (Current Source of Truth)
+
+### Crash Course Agent
+
+- Trigger context: topic-card tap flow
+- Output MUST include:
+  - `cards` with **exactly 5** cards in this fixed order:
+    1. `specific_mistake`
+    2. `intuition_analogy`
+    3. `actual_concept`
+    4. `worked_example`
+    5. `practice_question`
+  - `sora_video_prompt` (NOT `sofa_video_prompt`)
+- Tone target: playful brainrot, but never insulting, discouraging, or biased
+- Purpose: produce context + prompt bundle for `sora.ai` video generation
+- Anti-hallucination: concept/worked-example/practice content must stay grounded in RAG inputs
+
+### Weekly Insights Agent
+
+- Trigger context: weekly scheduled flow
+- Output MUST preserve fixed 5 sections:
+  1. `main_character`
+  2. `flop_era`
+  3. `ghost_topics`
+  4. `plot_twist`
+  5. `weekly_quest`
+- No hallucinated stats: all numeric claims must match input data
+- No bias/stereotyping language
+- Weekly quest must be actionable, calibrated to prior completion rate, and aligned to struggling/untouched topics
+
+### Required Quality Gates Before Commit/PR
+
+Run all three:
+
+```bash
+npm run build
+npm test
+npm run eval:agents
+```
+
+Expect:
+- tests pass
+- eval report passes all rubric checks (Crash Course + Weekly Insights)
+
+---
+
 ## Naming — NEVER Rename Mid-Project
 
 If you must rename packages, modules, or key variables:
