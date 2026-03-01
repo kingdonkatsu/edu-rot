@@ -11,6 +11,7 @@ import { computeBKT } from './bkt.js';
 import { computeEMA } from './ema.js';
 import { evaluateFlags } from './flags.js';
 import { computeIntervention } from './intervention.js';
+import { generateBrainRotVideo } from './video-service.js';
 import {
   STABILITY_CORRECT_INCREMENT,
   STABILITY_INCORRECT_DECREMENT,
@@ -51,7 +52,16 @@ export async function runPipeline(
   );
   await store.upsert(updatedState);
 
-  return composeResponse(event, decay, bkt, ema, flags, intervention, updatedState);
+  let videoUrl: string | undefined;
+  if (intervention.priority === 'critical' || intervention.priority === 'high') {
+    try {
+      videoUrl = await generateBrainRotVideo(intervention.recommended_action, event.student_id);
+    } catch (error) {
+      console.error('Failed to generate brain rot video:', error);
+    }
+  }
+
+  return composeResponse(event, decay, bkt, ema, flags, intervention, updatedState, videoUrl);
 }
 
 async function loadOrInitState(
@@ -125,7 +135,8 @@ function composeResponse(
   ema: ReturnType<typeof computeEMA>,
   flags: ReturnType<typeof evaluateFlags>,
   intervention: ReturnType<typeof computeIntervention>,
-  state: StudentConceptState
+  state: StudentConceptState,
+  videoUrl?: string
 ): PipelineResponse {
   return {
     event_id: event.event_id,
@@ -161,5 +172,6 @@ function composeResponse(
       streak_correct: state.streak_correct,
       streak_incorrect: state.streak_incorrect,
     },
+    video_url: videoUrl,
   };
 }
