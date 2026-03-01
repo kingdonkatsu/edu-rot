@@ -17,6 +17,27 @@ app.get('/health', (_req, res) => {
   });
 });
 
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.use(express.static(path.join(__dirname, '../public')));
+
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+import { crashCourseFixtures, weeklyInsightsFixtures } from './eval/fixtures.js';
+
+app.get('/api/v1/fixtures', (_req, res) => {
+  res.json({
+    crashCourse: crashCourseFixtures,
+    weeklyInsights: weeklyInsightsFixtures
+  });
+});
+
 app.post('/api/v1/events', createProcessEventHandler(stateStore));
 app.post('/api/v1/agents/crash-course', createCrashCourseHandler());
 app.post('/api/v1/agents/weekly-insights', createWeeklyInsightsHandler());

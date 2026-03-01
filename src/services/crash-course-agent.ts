@@ -102,7 +102,26 @@ export function defaultCrashCourseMaker(
     },
   ];
 
-  return { cards, attempts: 1, checker_history: [] };
+  const sora_video_prompt = {
+    engine: 'sora.ai',
+    video_objective: `Create an engaging educational video explaining ${subtopic} and correcting the ${error_classification} mistake using a brainrot aesthetic.`,
+    scenes: [
+      {
+        on_screen_visual: `A dynamic montage of someone struggling with ${subtopic}, overlaid with glitch effects.`,
+        narration_prompt: `POV: You hit the ${error_classification} wall. Total lag.`
+      },
+      {
+        on_screen_visual: `A glowing, high-tech breakdown showing ${conceptKeyword} working flawlessly.`,
+        narration_prompt: `But the fix is literally just this: ${conceptText}`
+      },
+      {
+        on_screen_visual: `A side-by-side comparison of the wrong way and the right way to solve the problem.`,
+        narration_prompt: `Watch this speedrun: ${exampleText}`
+      }
+    ]
+  };
+
+  return { cards, sora_video_prompt, attempts: 1, checker_history: [] };
 }
 
 // --- Checker ---

@@ -103,6 +103,17 @@ export interface CrashCourseCard {
   body: string;
 }
 
+export interface SoraVideoScene {
+  on_screen_visual: string;
+  narration_prompt: string;
+}
+
+export interface SoraVideoPrompt {
+  engine: string;
+  video_objective: string;
+  scenes: SoraVideoScene[];
+}
+
 export interface AgentCheckerIssue {
   gate: string;
   message: string;
@@ -131,6 +142,7 @@ export interface CrashCourseAgentInput {
 
 export interface CrashCourseAgentOutput {
   cards: CrashCourseCard[];
+  sora_video_prompt?: SoraVideoPrompt;
   attempts: number;
   checker_history: AgentCheckerResult[];
 }
