@@ -1,5 +1,7 @@
 import express from 'express';
 import { createProcessEventHandler } from './handlers/process-event.js';
+import { createCrashCourseHandler } from './handlers/crash-course-agent.js';
+import { createWeeklyInsightsHandler } from './handlers/weekly-insights-agent.js';
 import { stateStore } from './adapters/state-store.js';
 
 const app = express();
@@ -16,6 +18,8 @@ app.get('/health', (_req, res) => {
 });
 
 app.post('/api/v1/events', createProcessEventHandler(stateStore));
+app.post('/api/v1/agents/crash-course', createCrashCourseHandler());
+app.post('/api/v1/agents/weekly-insights', createWeeklyInsightsHandler());
 
 process.on('unhandledRejection', (reason) => {
   console.error('[unhandledRejection]', reason);

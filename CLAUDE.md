@@ -73,6 +73,43 @@ If you edit files on `main` and then try to commit, the hook will block you. Bra
 
 ---
 
+## Agent Architecture
+
+### TypeScript Agents (src/services/)
+Two agents implemented with **Maker → Checker → Retry** pattern (max 3 attempts, fail-open):
+
+| Service | Endpoint | Input | Output |
+|---------|----------|-------|--------|
+| `crash-course-agent.ts` | `POST /api/v1/agents/crash-course` | `CrashCourseAgentInput` | 5 cards |
+| `weekly-insights-agent.ts` | `POST /api/v1/agents/weekly-insights` | `WeeklyLearningState` | 5-section weekly recap |
+
+### Key design rules
+- Both agents accept optional `deps` (`{ maker?, checker? }`) for DI — always use DI in tests, never real makers
+- Issues **accumulate** across retries (not replaced) — prevents whack-a-mole regressions
+- Fail-open on max retries: return last draft regardless
+- Sentence counter uses `/[.!?]+(?=\s|$)/` (terminal punctuation only) to handle embedded dots in code examples
+### Quality gate commands
+```bash
+npm run build       # TypeScript must compile clean
+npm test            # all unit + integration tests pass
+npm run eval:agents # 115/115 rubric checks (12×5 CC + 11×5 WI)
+```
+
+### Files
+- `src/types.ts` — all shared types including agent types
+- `src/services/crash-course-agent.ts` — Maker, Checker (10 gates), control loop
+- `src/services/weekly-insights-agent.ts` — Maker, Checker (11 gates), control loop
+- `src/handlers/crash-course-agent.ts` / `weekly-insights-agent.ts` — Express handlers
+- `src/client/agents-api.ts` — typed fetch client
+- `src/client/frontend-flows.ts` — `onTopicCardTap()`, `fetchWeeklyRecap()`
+- `src/utils/validation.ts` — `validateCrashCourseInput()`, `validateWeeklyInsightsInput()`
+- `src/eval/agents-eval.ts` — rubric harness
+- `src/eval/fixtures.ts` — 5 CC + 5 WI test fixtures
+- `tests/unit/crash-course-agent.test.ts` — 16 unit tests
+- `tests/unit/weekly-insights-agent.test.ts` — 22 unit tests
+
+---
+
 ## Naming — NEVER Rename Mid-Project
 
 If you must rename packages, modules, or key variables:
