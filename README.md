@@ -36,6 +36,37 @@ const weeklyInsights = await postWeeklyInsightsAgent(weeklyPayload, {
 });
 ```
 
+UI flow helpers are also available in `src/client/frontend-flows.ts`.
+
+```ts
+import { createFrontendAgentFlows } from './src/client/frontend-flows.js';
+
+const flows = createFrontendAgentFlows();
+
+// Use on topic-card tap
+const crashDeck = await flows.onTopicCardTap(
+  { topic: 'Algebra', subtopic: 'Linear equations' },
+  {
+    student_id: 'student-001',
+    error_classification: 'procedural_error',
+    mastery_level: 'developing',
+    known_strengths: ['isolating variables'],
+    rag: {
+      concept_explanations: ['Balance both sides.'],
+      misconception_data: ['moving terms across equals without changing sign'],
+      analogies: ['A balance scale'],
+      worked_examples: ['2x + 3 = 11 -> x = 4'],
+    },
+  },
+  { baseUrl: 'http://localhost:3000' }
+);
+
+// Use for weekly recap fetch flow
+const weeklyRecap = await flows.fetchWeeklyRecap(weeklyPayload, {
+  baseUrl: 'http://localhost:3000',
+});
+```
+
 ## Project Documentation
 
 | Document | Purpose |
