@@ -78,6 +78,140 @@ export interface InterventionResult {
 
 export type MasteryLevel = 'novice' | 'developing' | 'proficient' | 'mastered';
 
+// --- Agent Types ---
+
+export type ErrorClassification =
+  | 'careless_mistake'
+  | 'lucky_guess'
+  | 'conceptual_gap'
+  | 'procedural_error'
+  | 'misread_question'
+  | 'stagnation'
+  | 'decay'
+  | 'none';
+
+export type CrashCourseCardStage =
+  | 'specific_mistake'
+  | 'intuition_analogy'
+  | 'actual_concept'
+  | 'worked_example'
+  | 'practice_question';
+
+export interface CrashCourseCard {
+  stage: CrashCourseCardStage;
+  title: string;
+  body: string;
+}
+
+export interface AgentCheckerIssue {
+  gate: string;
+  message: string;
+}
+
+export interface AgentCheckerResult {
+  passed: boolean;
+  issues: AgentCheckerIssue[];
+  attempt: number;
+}
+
+export interface CrashCourseAgentInput {
+  student_id: string;
+  topic: string;
+  subtopic: string;
+  error_classification: ErrorClassification;
+  mastery_level: MasteryLevel;
+  known_strengths: string[];
+  rag: {
+    concept_explanations: string[];
+    misconception_data: string[];
+    analogies: string[];
+    worked_examples: string[];
+  };
+}
+
+export interface CrashCourseAgentOutput {
+  cards: CrashCourseCard[];
+  attempts: number;
+  checker_history: AgentCheckerResult[];
+}
+
+export interface WeeklyTopicTrend {
+  topic: string;
+  attempts: number;
+  accuracy_rate: number;
+  mastery_delta: number;
+}
+
+export interface WeeklyErrorPattern {
+  pattern: string;
+  count: number;
+}
+
+export interface WeeklyBehaviorWindow {
+  label: string;
+  accuracy_rate: number;
+  sessions: number;
+}
+
+export interface WeeklyLearningState {
+  student_id: string;
+  week_start: string;
+  week_end: string;
+  improved_topics: WeeklyTopicTrend[];
+  declined_topics: WeeklyTopicTrend[];
+  untouched_topics: Array<{ topic: string; estimated_decay: number }>;
+  recurring_error_patterns: WeeklyErrorPattern[];
+  behavior_windows: WeeklyBehaviorWindow[];
+  avg_session_minutes: number;
+  sessions_count: number;
+  days_active: number;
+  previous_week_quest_completion_rate: number;
+}
+
+export interface MainCharacterSection {
+  topic: string;
+  mastery_delta: number;
+  attempts: number;
+  narrative: string;
+}
+
+export interface FlopEraSection {
+  topic: string;
+  error_pattern: string;
+  accuracy_rate: number;
+  narrative: string;
+}
+
+export interface GhostTopicSection {
+  topic: string;
+  estimated_decay: number;
+}
+
+export interface PlotTwistSection {
+  insight: string;
+  metric_label: string;
+  metric_value: number;
+}
+
+export interface WeeklyQuestItem {
+  action: string;
+  rationale: string;
+}
+
+export interface WeeklyInsightsRecap {
+  main_character: MainCharacterSection;
+  flop_era: FlopEraSection;
+  ghost_topics: GhostTopicSection[];
+  plot_twist: PlotTwistSection;
+  weekly_quest: WeeklyQuestItem[];
+}
+
+export interface WeeklyInsightsAgentOutput {
+  recap: WeeklyInsightsRecap;
+  attempts: number;
+  checker_history: AgentCheckerResult[];
+}
+
 // --- API Response ---
 
 export interface PipelineResponse {
