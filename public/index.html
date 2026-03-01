@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edu-Rot Pipeline Agent Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="glow-bg"></div>
+    <header>
+        <h1>Edu-Rot <span>Agents</span></h1>
+        <p>Data Analytics Pipeline for AI-Powered EdTech</p>
+    </header>
+
+    <main class="dashboard">
+        <!-- Crash Course Agent Section -->
+        <section class="agent-panel" id="crash-course-panel">
+            <div class="panel-header">
+                <div class="icon bg-violet">CC</div>
+                <h2>Crash Course Agent</h2>
+            </div>
+
+            <div class="panel-content">
+                <p class="description">Generates a brainrot-style 5-card deck and Sora.ai video prompt targeted at a
+                    specific student misconception.</p>
+
+                <form id="crash-course-form">
+                    <div class="input-group">
+                        <label for="cc-fixture-select">Select Student Persona:</label>
+                        <select id="cc-fixture-select" class="dropdown-select">
+                            <option value="">Loading personas...</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="primary-btn btn-violet" id="btn-cc">
+                        <span class="btn-text">Run Crash Course pipeline</span>
+                        <div class="loader hidden"></div>
+                    </button>
+                </form>
+
+                <div class="result-container hidden" id="cc-result">
+                    <div class="result-header">
+                        <h3>Agent Output</h3>
+                        <span class="badge" id="cc-attempts">Attempts: 1</span>
+                    </div>
+
+                    <div class="cards-grid" id="cc-cards-container">
+                        <!-- Cards injected here via JS -->
+                    </div>
+
+                    <div class="sora-prompt-card">
+                        <h4>Sora.ai Video Prompt Payload</h4>
+                        <div class="sora-meta">
+                            <span class="tag">Engine: <span id="cc-engine">sora.ai</span></span>
+                            <span class="tag">Tone: brainrot, playful</span>
+                        </div>
+                        <p class="objective" id="cc-objective"></p>
+                        <div class="scenes-list" id="cc-scenes-container">
+                            <!-- Scenes injected here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Weekly Insights Agent Section -->
+        <section class="agent-panel" id="weekly-insights-panel">
+            <div class="panel-header">
+                <div class="icon bg-cyan">WI</div>
+                <h2>Weekly Insights Agent</h2>
+            </div>
+
+            <div class="panel-content">
+                <p class="description">Generates a weekly review summarizing improvements, declines, and prescribes a
+                    personalized weekly quest.</p>
+
+                <form id="weekly-insights-form">
+                    <div class="input-group">
+                        <label for="wi-fixture-select">Select Student Persona:</label>
+                        <select id="wi-fixture-select" class="dropdown-select">
+                            <option value="">Loading personas...</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="primary-btn btn-cyan" id="btn-wi">
+                        <span class="btn-text">Run Weekly Insights pipeline</span>
+                        <div class="loader hidden"></div>
+                    </button>
+                </form>
+
+                <div class="result-container hidden" id="wi-result">
+                    <div class="result-header">
+                        <h3>Agent Recap</h3>
+                        <span class="badge" id="wi-attempts">Attempts: 1</span>
+                    </div>
+
+                    <div class="insight-cards">
+                        <!-- Main Character -->
+                        <div class="insight-card highlight-glow">
+                            <div class="card-role">Main Character</div>
+                            <h4 id="wi-main-topic"></h4>
+                            <p class="narrative" id="wi-main-narrative"></p>
+                            <div class="stats right">
+                                <span class="stat-box" id="wi-main-stats"></span>
+                            </div>
+                        </div>
+
+                        <!-- Flop Era -->
+                        <div class="insight-card red-glow">
+                            <div class="card-role">Flop Era</div>
+                            <h4 id="wi-flop-topic"></h4>
+                            <p class="narrative" id="wi-flop-narrative"></p>
+                            <div class="stats right">
+                                <span class="stat-box status-error" id="wi-flop-stats"></span>
+                            </div>
+                        </div>
+
+                        <!-- Plot Twist -->
+                        <div class="insight-card cyan-glow">
+                            <div class="card-role">Plot Twist</div>
+                            <p class="narrative large" id="wi-plot-twist"></p>
+                        </div>
+                    </div>
+
+                    <div class="quest-section">
+                        <h4>Weekly Quest</h4>
+                        <ul class="quest-list" id="wi-quest-list">
+                            <!-- Quests injected here -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
