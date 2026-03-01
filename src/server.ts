@@ -2,6 +2,11 @@ import express from 'express';
 import { createProcessEventHandler } from './handlers/process-event.js';
 import { handleCrashCourseAgent } from './handlers/crash-course-agent.js';
 import { handleWeeklyInsightsAgent } from './handlers/weekly-insights-agent.js';
+import {
+  handleCreateCrashCourseVideo,
+  handleGetVideoContent,
+  handleGetVideoStatus,
+} from './handlers/crash-course-video.js';
 import { stateStore } from './adapters/state-store.js';
 
 const app = express();
@@ -20,6 +25,9 @@ app.get('/health', (_req, res) => {
 app.post('/api/v1/events', createProcessEventHandler(stateStore));
 app.post('/api/v1/agents/crash-course', handleCrashCourseAgent);
 app.post('/api/v1/agents/weekly-insights', handleWeeklyInsightsAgent);
+app.post('/api/v1/videos/crash-course', handleCreateCrashCourseVideo);
+app.get('/api/v1/videos/:videoId', handleGetVideoStatus);
+app.get('/api/v1/videos/:videoId/content', handleGetVideoContent);
 
 process.on('unhandledRejection', (reason) => {
   console.error('[unhandledRejection]', reason);

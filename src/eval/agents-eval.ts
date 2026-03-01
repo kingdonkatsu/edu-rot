@@ -1,6 +1,17 @@
-import { runCrashCourseAgent } from '../services/crash-course-agent.js';
-import { runWeeklyInsightsAgent } from '../services/weekly-insights-agent.js';
-import { crashCourseEvalCases, weeklyInsightsEvalCases } from './fixtures.js';
+import {
+  AgentValidationError as CrashCourseAgentValidationError,
+  runCrashCourseAgent,
+} from '../services/crash-course-agent.js';
+import {
+  AgentValidationError as WeeklyInsightsAgentValidationError,
+  runWeeklyInsightsAgent,
+} from '../services/weekly-insights-agent.js';
+import {
+  crashCourseEvalCases,
+  crashCourseEvalCasesLarge,
+  weeklyInsightsEvalCases,
+  weeklyInsightsEvalCasesLarge,
+} from './fixtures.js';
 import type {
   CrashCourseAgentInput,
   CrashCourseAgentOutput,
@@ -50,11 +61,28 @@ const REQUIRED_CRASH_STAGES = [
 ] as const;
 
 async function main(): Promise<void> {
+  const selectedCaseSet = resolveCaseSet();
+  const crashCases =
+    selectedCaseSet === 'large'
+      ? crashCourseEvalCasesLarge
+      : selectedCaseSet === 'all'
+        ? [...crashCourseEvalCases, ...crashCourseEvalCasesLarge]
+        : crashCourseEvalCases;
+  const weeklyCases =
+    selectedCaseSet === 'large'
+      ? weeklyInsightsEvalCasesLarge
+      : selectedCaseSet === 'all'
+        ? [...weeklyInsightsEvalCases, ...weeklyInsightsEvalCasesLarge]
+        : weeklyInsightsEvalCases;
+
+  console.log(`Running agent eval case set: ${selectedCaseSet}`);
+  console.log(`Crash cases: ${crashCases.length}, Weekly cases: ${weeklyCases.length}`);
+
   const crashResults = await Promise.all(
-    crashCourseEvalCases.map(async (evalCase) => evalCrashCourseCase(evalCase.id, evalCase.description, evalCase.input))
+    crashCases.map(async (evalCase) => evalCrashCourseCase(evalCase.id, evalCase.description, evalCase.input))
   );
   const weeklyResults = await Promise.all(
-    weeklyInsightsEvalCases.map(async (evalCase) => evalWeeklyInsightsCase(evalCase.id, evalCase.description, evalCase.input))
+    weeklyCases.map(async (evalCase) => evalWeeklyInsightsCase(evalCase.id, evalCase.description, evalCase.input))
   );
 
   const crashSummary = summarizeSuite('Crash Course Agent', crashResults);
@@ -74,7 +102,16 @@ async function evalCrashCourseCase(
   description: string,
   input: CrashCourseAgentInput
 ): Promise<CaseEvalResult> {
-  const output = await runCrashCourseAgent(input);
+  let output: CrashCourseAgentOutput;
+  try {
+    output = await runCrashCourseAgent(input);
+  } catch (error) {
+    return {
+      caseId,
+      description,
+      checks: buildFailureChecks('crash-course-agent-runtime', error),
+    };
+  }
   const checks: RubricCheck[] = [];
 
   checks.push(checkAttempts(output.attempts));
@@ -99,7 +136,16 @@ async function evalWeeklyInsightsCase(
   description: string,
   input: WeeklyLearningState
 ): Promise<CaseEvalResult> {
-  const output = await runWeeklyInsightsAgent(input);
+  let output: WeeklyInsightsAgentOutput;
+  try {
+    output = await runWeeklyInsightsAgent(input);
+  } catch (error) {
+    return {
+      caseId,
+      description,
+      checks: buildFailureChecks('weekly-insights-agent-runtime', error),
+    };
+  }
   const checks: RubricCheck[] = [];
 
   checks.push(checkAttempts(output.attempts));
@@ -587,6 +633,42 @@ function normalizeForMatch(text: string): string {
 
 function roundMetric(value: number): number {
   return Math.round(value * 10_000) / 10_000;
+}
+
+function buildFailureChecks(runtimeName: string, error: unknown): RubricCheck[] {
+  if (error instanceof CrashCourseAgentValidationError || error instanceof WeeklyInsightsAgentValidationError) {
+    const history = error.checkerHistory.map((item, index) => {
+      const issueList = item.issues.map((issue) => issue.message).join('; ');
+      return `attempt ${index + 1}: ${issueList || 'no issues listed'}`;
+    });
+    return [{
+      name: runtimeName,
+      passed: false,
+      details: `Validation failed after max retries. ${history.join(' | ')}`,
+    }];
+  }
+
+  if (error instanceof Error) {
+    return [{
+      name: runtimeName,
+      passed: false,
+      details: `${error.name}: ${error.message}`,
+    }];
+  }
+
+  return [{
+    name: runtimeName,
+    passed: false,
+    details: 'Unknown runtime error',
+  }];
+}
+
+function resolveCaseSet(): 'base' | 'large' | 'all' {
+  const raw = (process.env.EVAL_CASESET ?? 'base').trim().toLowerCase();
+  if (raw === 'large' || raw === 'all') {
+    return raw;
+  }
+  return 'base';
 }
 
 void main();

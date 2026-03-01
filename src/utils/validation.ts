@@ -1,6 +1,7 @@
 import { validate as isUUID } from 'uuid';
 import type {
   CrashCourseAgentInput,
+  CrashCourseVideoRenderRequest,
   ErrorClassification,
   LMSEvent,
   WeeklyLearningState,
@@ -174,6 +175,150 @@ export function validateWeeklyLearningState(body: unknown): ValidationResult<Wee
       sessions_count: obj.sessions_count as number,
       days_active: obj.days_active as number,
       previous_week_quest_completion_rate: obj.previous_week_quest_completion_rate as number,
+    },
+  };
+}
+
+export function validateCrashCourseVideoRenderRequest(
+  body: unknown
+): ValidationResult<CrashCourseVideoRenderRequest> {
+  if (!body || typeof body !== 'object') {
+    return { valid: false, errors: [{ field: 'body', message: 'Request body must be a JSON object' }] };
+  }
+
+  const obj = body as Record<string, unknown>;
+  const errors: ValidationError[] = [];
+
+  const crashValidation = validateCrashCourseAgentInput(obj.crash_course_input);
+  if (!crashValidation.valid) {
+    crashValidation.errors.forEach((error) => {
+      errors.push({
+        field: `crash_course_input.${error.field}`,
+        message: error.message,
+      });
+    });
+  }
+
+  let stylePreset:
+    | 'brainrot_classic'
+    | 'cartoon_ocean_mentor'
+    | 'anime_sensei'
+    | 'retro_arcade_coach'
+    | 'chalkboard_speedrun'
+    | undefined;
+  let creatorPrompt: string | undefined;
+  let voiceoverStyle: string | undefined;
+  let seconds: '4' | '8' | '12' | undefined;
+  let size: '720x1280' | '1280x720' | '1024x1792' | '1792x1024' | undefined;
+
+  if (obj.video_preference !== undefined) {
+    if (!obj.video_preference || typeof obj.video_preference !== 'object') {
+      errors.push({ field: 'video_preference', message: 'video_preference must be an object' });
+    } else {
+      const pref = obj.video_preference as Record<string, unknown>;
+      if (pref.style_preset !== undefined) {
+        const allowed = new Set([
+          'brainrot_classic',
+          'cartoon_ocean_mentor',
+          'anime_sensei',
+          'retro_arcade_coach',
+          'chalkboard_speedrun',
+        ]);
+        if (typeof pref.style_preset !== 'string' || !allowed.has(pref.style_preset)) {
+          errors.push({
+            field: 'video_preference.style_preset',
+            message: 'video_preference.style_preset is invalid',
+          });
+        } else {
+          stylePreset = pref.style_preset as
+            | 'brainrot_classic'
+            | 'cartoon_ocean_mentor'
+            | 'anime_sensei'
+            | 'retro_arcade_coach'
+            | 'chalkboard_speedrun';
+        }
+      }
+
+      if (pref.creator_prompt !== undefined) {
+        if (typeof pref.creator_prompt !== 'string') {
+          errors.push({
+            field: 'video_preference.creator_prompt',
+            message: 'video_preference.creator_prompt must be a string',
+          });
+        } else {
+          creatorPrompt = pref.creator_prompt;
+        }
+      }
+
+      if (pref.voiceover_style !== undefined) {
+        if (typeof pref.voiceover_style !== 'string') {
+          errors.push({
+            field: 'video_preference.voiceover_style',
+            message: 'video_preference.voiceover_style must be a string',
+          });
+        } else {
+          voiceoverStyle = pref.voiceover_style;
+        }
+      }
+
+      if (pref.seconds !== undefined) {
+        if (pref.seconds !== '4' && pref.seconds !== '8' && pref.seconds !== '12') {
+          errors.push({
+            field: 'video_preference.seconds',
+            message: 'video_preference.seconds must be one of 4, 8, or 12',
+          });
+        } else {
+          seconds = pref.seconds;
+        }
+      }
+
+      if (pref.size !== undefined) {
+        const allowedSizes = new Set(['720x1280', '1280x720', '1024x1792', '1792x1024']);
+        if (typeof pref.size !== 'string' || !allowedSizes.has(pref.size)) {
+          errors.push({
+            field: 'video_preference.size',
+            message: 'video_preference.size is invalid',
+          });
+        } else {
+          size = pref.size as typeof size;
+        }
+      }
+    }
+  }
+
+  if (obj.auto_poll !== undefined && typeof obj.auto_poll !== 'boolean') {
+    errors.push({ field: 'auto_poll', message: 'auto_poll must be a boolean' });
+  }
+  if (obj.poll_interval_ms !== undefined) {
+    const err = validateNonNegativeNumber('poll_interval_ms', obj.poll_interval_ms);
+    if (err) errors.push(err);
+  }
+  if (obj.max_wait_ms !== undefined) {
+    const err = validateNonNegativeNumber('max_wait_ms', obj.max_wait_ms);
+    if (err) errors.push(err);
+  }
+
+  if (errors.length > 0) {
+    return { valid: false, errors };
+  }
+
+  return {
+    valid: true,
+    errors: [],
+    data: {
+      crash_course_input: crashValidation.data!,
+      video_preference: obj.video_preference === undefined
+        ? undefined
+        : {
+          style_preset: stylePreset,
+          creator_prompt: creatorPrompt,
+          voiceover_style: voiceoverStyle,
+          seconds,
+          size,
+        },
+      auto_poll: typeof obj.auto_poll === 'boolean' ? obj.auto_poll : undefined,
+      poll_interval_ms: typeof obj.poll_interval_ms === 'number' ? obj.poll_interval_ms : undefined,
+      max_wait_ms: typeof obj.max_wait_ms === 'number' ? obj.max_wait_ms : undefined,
     },
   };
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { runCrashCourseAgent } from '../../src/services/crash-course-agent.js';
+import { AgentValidationError, runCrashCourseAgent } from '../../src/services/crash-course-agent.js';
 import type { CrashCourseAgentInput, CrashCourseMakerOutput } from '../../src/types.js';
 
 function makeInput(overrides: Partial<CrashCourseAgentInput> = {}): CrashCourseAgentInput {
@@ -29,12 +29,61 @@ function makeValidDraft(): CrashCourseMakerOutput {
       { stage: 'worked_example', title: 'Example', body: '2x + 3 = 11 -> 2x = 8 -> x = 4' },
       { stage: 'practice_question', title: 'Practice', body: 'Solve 3x - 4 = 17 and avoid procedural error.' },
     ],
+    sora_video_prompt: {
+      engine: 'sora.ai',
+      tone: 'playful brainrot',
+      audience: 'student',
+      output_format: 'vertical_short',
+      video_objective: 'Teach the exact misconception clearly.',
+      safety_constraints: ['No discouraging language.', 'No stereotypes or bias.'],
+      scenes: [
+        {
+          stage: 'specific_mistake',
+          scene_goal: 'State the exact mistake.',
+          on_screen_visual: 'Equation with highlighted incorrect sign move.',
+          narration_prompt: 'You hit a procedural error. Fix this specific step.',
+          misconception_target: 'moving terms across equals without flipping sign',
+        },
+        {
+          stage: 'intuition_analogy',
+          scene_goal: 'Build intuition via analogy.',
+          on_screen_visual: 'Balance scale animation.',
+          narration_prompt: 'Treat both sides like a seesaw; both must stay balanced.',
+          misconception_target: 'equality preservation',
+        },
+        {
+          stage: 'actual_concept',
+          scene_goal: 'Explain concept rule.',
+          on_screen_visual: 'Step-by-step equation transform.',
+          narration_prompt: 'Balance both sides at every step.',
+          misconception_target: 'procedural consistency',
+        },
+        {
+          stage: 'worked_example',
+          scene_goal: 'Show worked example.',
+          on_screen_visual: '2x + 3 = 11 to x = 4 walkthrough.',
+          narration_prompt: 'Apply the rule line by line to avoid sign mistakes.',
+          misconception_target: 'line-by-line equation solving',
+        },
+        {
+          stage: 'practice_question',
+          scene_goal: 'Prompt targeted practice.',
+          on_screen_visual: 'New equation appears with pause for student attempt.',
+          narration_prompt: 'Solve 3x - 4 = 17 and call out the sign flip step.',
+          misconception_target: 'sign handling when moving terms',
+        },
+      ],
+      final_call_to_action: 'Try one more equation and explain your anti-error step out loud.',
+    },
   };
 }
 
 describe('runCrashCourseAgent', () => {
   it('passes checker on first attempt with default deps', async () => {
-    const result = await runCrashCourseAgent(makeInput());
+    const result = await runCrashCourseAgent(makeInput(), {
+      maker: async () => makeValidDraft(),
+      checker: async () => ({ passed: true, issues: [] }),
+    });
     expect(result.attempts).toBe(1);
     expect(result.cards.length).toBe(5);
     expect(result.sora_video_prompt.engine).toBe('sora.ai');
@@ -79,36 +128,20 @@ describe('runCrashCourseAgent', () => {
   });
 
   it('stops after max retries when checker keeps failing', async () => {
-    const result = await runCrashCourseAgent(makeInput(), {
+    await expect(runCrashCourseAgent(makeInput(), {
       maker: async () => ({ cards: [] }),
       checker: async () => ({
         passed: false,
         issues: [{ message: 'still wrong', fix_instruction: 'fix again' }],
       }),
+    })).rejects.toBeInstanceOf(AgentValidationError);
+  });
+
+  it('returns a maker-provided sora prompt aligned to card structure', async () => {
+    const result = await runCrashCourseAgent(makeInput(), {
+      maker: async () => makeValidDraft(),
+      checker: async () => ({ passed: true, issues: [] }),
     });
-
-    expect(result.attempts).toBe(3);
-    expect(result.checker_history).toHaveLength(3);
-    expect(result.checker_history.every((entry) => !entry.passed)).toBe(true);
-  });
-
-  it('normalizes punctuation so cards do not contain double periods', async () => {
-    const result = await runCrashCourseAgent(makeInput({
-      rag: {
-        concept_explanations: ['Balance both sides.'],
-        misconception_data: ['sign error.'],
-        analogies: ['See-saw model.'],
-        worked_examples: ['2x + 3 = 11 -> 2x = 8 -> x = 4'],
-      },
-    }));
-
-    expect(result.cards.every((card) => !card.body.includes('..'))).toBe(true);
-  });
-
-  it('uses brainrot tone while keeping required structure', async () => {
-    const result = await runCrashCourseAgent(makeInput());
-    const allText = result.cards.map((card) => `${card.title} ${card.body}`).join(' ').toLowerCase();
-    expect(allText.includes('no cap') || allText.includes('vibe check')).toBe(true);
     expect(result.cards.map((card) => card.stage)).toEqual([
       'specific_mistake',
       'intuition_analogy',
@@ -116,5 +149,8 @@ describe('runCrashCourseAgent', () => {
       'worked_example',
       'practice_question',
     ]);
+    expect(result.sora_video_prompt.scenes.map((scene) => scene.stage)).toEqual(
+      result.cards.map((card) => card.stage)
+    );
   });
 });

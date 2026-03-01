@@ -193,6 +193,7 @@ export interface CrashCourseCard {
 
 export interface CrashCourseMakerOutput {
   cards: CrashCourseCard[];
+  sora_video_prompt?: CrashCourseSoraPrompt;
 }
 
 export interface CrashCourseSoraScenePrompt {
@@ -262,16 +263,77 @@ export interface WeeklyQuestItem {
   rationale: string;
 }
 
+export interface WeeklyProblemStatementAnswers {
+  weak_vs_careless: string;
+  trend_over_time: string;
+  limited_time_focus: string;
+  repeated_struggle_reason: string;
+  adaptation_note: string;
+}
+
 export interface WeeklyInsightsRecap {
   main_character: MainCharacterSection;
   flop_era: FlopEraSection;
   ghost_topics: GhostTopicSection[];
   plot_twist: PlotTwistSection;
   weekly_quest: WeeklyQuestItem[];
+  problem_statement_answers?: WeeklyProblemStatementAnswers;
 }
 
 export interface WeeklyInsightsAgentOutput {
   recap: WeeklyInsightsRecap;
   attempts: number;
   checker_history: AgentCheckerResult[];
+}
+
+// --- Video Rendering ---
+
+export type VideoStylePreset =
+  | 'brainrot_classic'
+  | 'cartoon_ocean_mentor'
+  | 'anime_sensei'
+  | 'retro_arcade_coach'
+  | 'chalkboard_speedrun';
+
+export type VideoSize = '720x1280' | '1280x720' | '1024x1792' | '1792x1024';
+export type VideoSeconds = '4' | '8' | '12';
+
+export interface CrashCourseVideoPreference {
+  style_preset?: VideoStylePreset;
+  creator_prompt?: string;
+  voiceover_style?: string;
+  seconds?: VideoSeconds;
+  size?: VideoSize;
+}
+
+export interface CrashCourseVideoRenderRequest {
+  crash_course_input: CrashCourseAgentInput;
+  video_preference?: CrashCourseVideoPreference;
+  auto_poll?: boolean;
+  poll_interval_ms?: number;
+  max_wait_ms?: number;
+}
+
+export interface VideoJobError {
+  code?: string;
+  message?: string;
+}
+
+export interface VideoJobStatus {
+  id: string;
+  status: string;
+  progress?: number;
+  model?: string;
+  size?: string;
+  seconds?: string;
+  error?: VideoJobError | null;
+}
+
+export interface CrashCourseVideoRenderResponse {
+  crash_course: CrashCourseAgentOutput;
+  rendered_prompt: string;
+  style_preset: VideoStylePreset;
+  safety_note?: string;
+  video_job: VideoJobStatus;
+  content_url?: string;
 }

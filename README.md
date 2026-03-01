@@ -27,6 +27,35 @@ npm run eval:agents
 This runs rubric-based quality checks for Crash Course and Weekly Insights agents
 using curated fixtures in `src/eval/fixtures.ts`.
 
+Additional eval sets:
+
+```bash
+npm run eval:agents:large
+npm run eval:agents:all
+```
+
+- `eval:agents:large` runs the large stress fixtures only.
+- `eval:agents:all` runs both base + large fixtures.
+
+## OpenAI Runtime
+
+Runtime endpoint behavior for:
+- `POST /api/v1/agents/crash-course`
+- `POST /api/v1/agents/weekly-insights`
+
+uses OpenAI-backed maker/checker calls. Set in `.env`:
+
+```env
+OPENAI_API_KEY=your_key_here
+# optional
+# OPENAI_MODEL=gpt-4.1-mini
+```
+
+Notes:
+- Unit tests remain deterministic and do not require OpenAI calls.
+- `eval:agents` uses live OpenAI-backed generation/checking and needs `OPENAI_API_KEY` plus network access.
+- If key is missing, agent handlers return a configuration error.
+
 ## Frontend Agent Calls
 
 Typed frontend helpers are available in `src/client/agents-api.ts`.

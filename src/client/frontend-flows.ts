@@ -1,11 +1,14 @@
 import type {
   CrashCourseAgentInput,
   CrashCourseAgentOutput,
+  CrashCourseVideoPreference,
+  CrashCourseVideoRenderResponse,
   WeeklyInsightsAgentOutput,
   WeeklyLearningState,
 } from '../types.js';
 import {
   postCrashCourseAgent,
+  postCrashCourseVideoRender,
   postWeeklyInsightsAgent,
   type AgentApiRequestOptions,
 } from './agents-api.js';
@@ -27,6 +30,12 @@ export interface FrontendAgentFlows {
     weeklyLearningState: WeeklyLearningState,
     options?: AgentApiRequestOptions
   ) => Promise<WeeklyInsightsAgentOutput>;
+  generateCrashCourseVideo: (
+    topicCard: TopicCardSelection,
+    studentContext: CrashCourseStudentContext,
+    preference?: CrashCourseVideoPreference,
+    options?: AgentApiRequestOptions
+  ) => Promise<CrashCourseVideoRenderResponse>;
 }
 
 export interface FrontendAgentFlowDeps {
@@ -38,6 +47,16 @@ export interface FrontendAgentFlowDeps {
     input: WeeklyLearningState,
     options?: AgentApiRequestOptions
   ) => Promise<WeeklyInsightsAgentOutput>;
+  postCrashCourseVideo?: (
+    input: {
+      crash_course_input: CrashCourseAgentInput;
+      video_preference?: CrashCourseVideoPreference;
+      auto_poll?: boolean;
+      poll_interval_ms?: number;
+      max_wait_ms?: number;
+    },
+    options?: AgentApiRequestOptions
+  ) => Promise<CrashCourseVideoRenderResponse>;
 }
 
 export function createFrontendAgentFlows(
@@ -45,6 +64,7 @@ export function createFrontendAgentFlows(
 ): FrontendAgentFlows {
   const crashCoursePoster = deps.postCrashCourse ?? postCrashCourseAgent;
   const weeklyInsightsPoster = deps.postWeeklyInsights ?? postWeeklyInsightsAgent;
+  const crashCourseVideoPoster = deps.postCrashCourseVideo ?? postCrashCourseVideoRender;
 
   return {
     async onTopicCardTap(
@@ -67,6 +87,28 @@ export function createFrontendAgentFlows(
       options: AgentApiRequestOptions = {}
     ): Promise<WeeklyInsightsAgentOutput> {
       return weeklyInsightsPoster(weeklyLearningState, options);
+    },
+
+    async generateCrashCourseVideo(
+      topicCard: TopicCardSelection,
+      studentContext: CrashCourseStudentContext,
+      preference: CrashCourseVideoPreference = {},
+      options: AgentApiRequestOptions = {}
+    ): Promise<CrashCourseVideoRenderResponse> {
+      return crashCourseVideoPoster(
+        {
+          crash_course_input: {
+            ...studentContext,
+            topic: topicCard.topic,
+            subtopic: topicCard.subtopic,
+          },
+          video_preference: preference,
+          auto_poll: true,
+          poll_interval_ms: 2500,
+          max_wait_ms: 120000,
+        },
+        options
+      );
     },
   };
 }

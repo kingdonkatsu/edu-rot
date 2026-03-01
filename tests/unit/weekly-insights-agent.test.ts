@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { runWeeklyInsightsAgent } from '../../src/services/weekly-insights-agent.js';
+import { AgentValidationError, runWeeklyInsightsAgent } from '../../src/services/weekly-insights-agent.js';
 import type { WeeklyInsightsRecap, WeeklyLearningState } from '../../src/types.js';
 
 function makeInput(overrides: Partial<WeeklyLearningState> = {}): WeeklyLearningState {
@@ -64,8 +64,11 @@ function makeRecap(): WeeklyInsightsRecap {
 }
 
 describe('runWeeklyInsightsAgent', () => {
-  it('passes checker on first attempt with default deps', async () => {
-    const result = await runWeeklyInsightsAgent(makeInput());
+  it('passes checker on first attempt with injected deps', async () => {
+    const result = await runWeeklyInsightsAgent(makeInput(), {
+      maker: async () => makeRecap(),
+      checker: async () => ({ passed: true, issues: [] }),
+    });
     expect(result.attempts).toBe(1);
     expect(result.checker_history).toHaveLength(1);
     expect(result.checker_history[0].passed).toBe(true);
@@ -106,27 +109,26 @@ describe('runWeeklyInsightsAgent', () => {
   });
 
   it('stops after max retries when checker keeps failing', async () => {
-    const result = await runWeeklyInsightsAgent(makeInput(), {
+    await expect(runWeeklyInsightsAgent(makeInput(), {
       maker: async () => makeRecap(),
       checker: async () => ({
         passed: false,
         issues: [{ message: 'still wrong', fix_instruction: 'fix again' }],
       }),
-    });
-
-    expect(result.attempts).toBe(3);
-    expect(result.checker_history).toHaveLength(3);
-    expect(result.checker_history.every((entry) => !entry.passed)).toBe(true);
+    })).rejects.toBeInstanceOf(AgentValidationError);
   });
 
-  it('rounds plot twist metric to avoid floating precision noise', async () => {
-    const result = await runWeeklyInsightsAgent(makeInput());
+  it('preserves provided recap metrics from maker output', async () => {
+    const result = await runWeeklyInsightsAgent(makeInput(), {
+      maker: async () => makeRecap(),
+      checker: async () => ({ passed: true, issues: [] }),
+    });
     expect(result.recap.plot_twist.metric_value).toBe(0.23);
   });
 
   it('rejects bias-risk language in recap content', async () => {
     const input = makeInput();
-    const result = await runWeeklyInsightsAgent(input, {
+    await expect(runWeeklyInsightsAgent(input, {
       maker: async () => ({
         main_character: {
           topic: 'Fractions',
@@ -153,9 +155,15 @@ describe('runWeeklyInsightsAgent', () => {
           { action: 'Run 2 focused practice blocks on Probability this week.', rationale: 'Prevents decay this week.' },
         ],
       }),
-    });
-
-    expect(result.attempts).toBe(3);
-    expect(result.checker_history.at(-1)?.passed).toBe(false);
+      checker: async (_input, recap) => {
+        const hasBias = recap.flop_era.narrative.toLowerCase().includes('boys are');
+        return hasBias
+          ? {
+            passed: false,
+            issues: [{ message: 'bias risk', fix_instruction: 'remove stereotype' }],
+          }
+          : { passed: true, issues: [] };
+      },
+    })).rejects.toBeInstanceOf(AgentValidationError);
   });
 });

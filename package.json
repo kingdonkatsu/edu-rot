@@ -9,7 +9,9 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "eval:agents": "npm run build && node dist/eval/agents-eval.js"
+    "eval:agents": "npm run build && node dist/eval/agents-eval.js",
+    "eval:agents:large": "npm run build && EVAL_CASESET=large node dist/eval/agents-eval.js",
+    "eval:agents:all": "npm run build && EVAL_CASESET=all node dist/eval/agents-eval.js"
   },
   "keywords": [],
   "author": "",
