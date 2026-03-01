@@ -183,8 +183,7 @@ export type CrashCourseCardStage =
   | 'intuition_analogy'
   | 'actual_concept'
   | 'worked_example'
-  | 'practice_question'
-  | 'reinforcement';
+  | 'practice_question';
 
 export interface CrashCourseCard {
   stage: CrashCourseCardStage;
@@ -194,6 +193,25 @@ export interface CrashCourseCard {
 
 export interface CrashCourseMakerOutput {
   cards: CrashCourseCard[];
+}
+
+export interface CrashCourseSoraScenePrompt {
+  stage: CrashCourseCardStage;
+  scene_goal: string;
+  on_screen_visual: string;
+  narration_prompt: string;
+  misconception_target: string;
+}
+
+export interface CrashCourseSoraPrompt {
+  engine: 'sora.ai';
+  tone: string;
+  audience: string;
+  output_format: 'vertical_short';
+  video_objective: string;
+  safety_constraints: string[];
+  scenes: CrashCourseSoraScenePrompt[];
+  final_call_to_action: string;
 }
 
 export interface AgentCheckerIssue {
@@ -209,6 +227,7 @@ export interface AgentCheckerResult {
 
 export interface CrashCourseAgentOutput {
   cards: CrashCourseCard[];
+  sora_video_prompt: CrashCourseSoraPrompt;
   attempts: number;
   checker_history: AgentCheckerResult[];
 }

@@ -49,6 +49,16 @@ describe('frontend agent flows', () => {
   it('uses postCrashCourseAgent on topic card tap', async () => {
     const postCrashCourse = vi.fn(async () => ({
       cards: [],
+      sora_video_prompt: {
+        engine: 'sora.ai' as const,
+        tone: '',
+        audience: '',
+        output_format: 'vertical_short' as const,
+        video_objective: '',
+        safety_constraints: [],
+        scenes: [],
+        final_call_to_action: '',
+      },
       attempts: 1,
       checker_history: [],
     }));

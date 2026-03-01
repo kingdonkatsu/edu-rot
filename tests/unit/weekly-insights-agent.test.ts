@@ -123,4 +123,39 @@ describe('runWeeklyInsightsAgent', () => {
     const result = await runWeeklyInsightsAgent(makeInput());
     expect(result.recap.plot_twist.metric_value).toBe(0.23);
   });
+
+  it('rejects bias-risk language in recap content', async () => {
+    const input = makeInput();
+    const result = await runWeeklyInsightsAgent(input, {
+      maker: async () => ({
+        main_character: {
+          topic: 'Fractions',
+          mastery_delta: 0.24,
+          attempts: 12,
+          narrative: 'Main Character arc: Fractions popped off with +24% mastery over 12 attempts.',
+        },
+        flop_era: {
+          topic: 'Geometry',
+          error_pattern: 'procedural_error',
+          accuracy_rate: 0.42,
+          narrative: 'Flop Era alert: boys are bad at Geometry with 42% accuracy.',
+        },
+        ghost_topics: [
+          { topic: 'Probability', estimated_decay: 0.21 },
+        ],
+        plot_twist: {
+          insight: 'Plot Twist: you are 23% more accurate during after 9pm than before 9am.',
+          metric_label: 'accuracy_diff_best_vs_worst_window',
+          metric_value: 0.23,
+        },
+        weekly_quest: [
+          { action: 'Run 2 focused practice blocks on Geometry this week.', rationale: 'Targets weak topic this week.' },
+          { action: 'Run 2 focused practice blocks on Probability this week.', rationale: 'Prevents decay this week.' },
+        ],
+      }),
+    });
+
+    expect(result.attempts).toBe(3);
+    expect(result.checker_history.at(-1)?.passed).toBe(false);
+  });
 });

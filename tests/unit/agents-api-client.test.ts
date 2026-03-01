@@ -55,7 +55,21 @@ describe('agent API client', () => {
   it('posts crash course payload and returns parsed response', async () => {
     const fetchImpl = vi.fn(async (url: string) => {
       expect(url).toBe('http://localhost:3000/api/v1/agents/crash-course');
-      return new Response(JSON.stringify({ attempts: 1, cards: [], checker_history: [] }), {
+      return new Response(JSON.stringify({
+        attempts: 1,
+        cards: [],
+        sora_video_prompt: {
+          engine: 'sora.ai',
+          tone: '',
+          audience: '',
+          output_format: 'vertical_short',
+          video_objective: '',
+          safety_constraints: [],
+          scenes: [],
+          final_call_to_action: '',
+        },
+        checker_history: [],
+      }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });

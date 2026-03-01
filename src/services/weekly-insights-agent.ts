@@ -11,6 +11,16 @@ import type {
 const MAX_RETRIES = 2;
 const MAX_ATTEMPTS = MAX_RETRIES + 1;
 const DISCOURAGING_TERMS = ['stupid', 'idiot', 'lazy', 'hopeless', 'dumb'];
+const BIAS_PATTERNS = [
+  /\bboys?\s+are\b/i,
+  /\bgirls?\s+are\b/i,
+  /\bmen\s+are\b/i,
+  /\bwomen\s+are\b/i,
+  /\byour\s+race\b/i,
+  /\byour\s+religion\b/i,
+  /\byour\s+gender\b/i,
+  /\byour\s+kind\b/i,
+];
 
 export interface WeeklyInsightsAgentDeps {
   maker?: (
@@ -139,6 +149,13 @@ async function defaultWeeklyInsightsChecker(
     }
   }
 
+  if (!isNarrativeMetricsConsistent(recap, input, expectedMain, expectedFlop)) {
+    issues.push({
+      message: 'Narrative contains inconsistent percentage/metric references.',
+      fix_instruction: 'Align all narrative percentages to exact source metrics (main, flop, and plot twist).',
+    });
+  }
+
   const validPatterns = new Set(input.recurring_error_patterns.map((pattern) => String(pattern.pattern)));
   if (recap.flop_era.error_pattern !== 'none-detected' && !validPatterns.has(recap.flop_era.error_pattern)) {
     issues.push({
@@ -188,6 +205,13 @@ async function defaultWeeklyInsightsChecker(
     }
   });
 
+  if (!questsTargetRelevantTopics(recap.weekly_quest, recap.flop_era.topic, recap.ghost_topics.map((topic) => topic.topic))) {
+    issues.push({
+      message: 'Weekly Quest actions are not aligned with struggling/untouched topics.',
+      fix_instruction: 'Keep quest actions tied to Flop Era or Ghost Topics, unless using generic daily review sprint.',
+    });
+  }
+
   if (recap.main_character.topic === recap.flop_era.topic && recap.main_character.topic !== 'No clear winner this week') {
     issues.push({
       message: 'Main Character and Flop Era topics should not contradict each other.',
@@ -213,6 +237,14 @@ async function defaultWeeklyInsightsChecker(
     issues.push({
       message: 'Tone crossed into discouraging language.',
       fix_instruction: 'Use playful, supportive language and remove discouraging words.',
+    });
+  }
+
+  const biasRisk = toneBlocks.some((block) => containsBiasRisk(block));
+  if (biasRisk) {
+    issues.push({
+      message: 'Tone may contain biased or demographic-targeting language.',
+      fix_instruction: 'Remove demographic stereotypes and keep language identity-neutral.',
     });
   }
 
@@ -328,6 +360,63 @@ function containsBehaviorMetric(
 function containsDiscouragingTone(text: string): boolean {
   const lowered = text.toLowerCase();
   return DISCOURAGING_TERMS.some((term) => lowered.includes(term));
+}
+
+function containsBiasRisk(text: string): boolean {
+  return BIAS_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function isNarrativeMetricsConsistent(
+  recap: WeeklyInsightsRecap,
+  input: WeeklyLearningState,
+  expectedMain: WeeklyTopicTrend | null,
+  expectedFlop: WeeklyTopicTrend | null
+): boolean {
+  if (expectedMain) {
+    const expectedMainPercent = toPercent(expectedMain.mastery_delta);
+    if (!recap.main_character.narrative.includes(expectedMainPercent)) {
+      return false;
+    }
+  }
+
+  if (expectedFlop) {
+    const expectedFlopAccuracy = toPercent(expectedFlop.accuracy_rate);
+    if (!recap.flop_era.narrative.includes(expectedFlopAccuracy)) {
+      return false;
+    }
+  }
+
+  if (input.behavior_windows.length >= 2) {
+    const sorted = [...input.behavior_windows].sort((a, b) => b.accuracy_rate - a.accuracy_rate);
+    const expectedDiff = toPercent(Math.max(0, sorted[0].accuracy_rate - sorted[sorted.length - 1].accuracy_rate));
+    if (!recap.plot_twist.insight.includes(expectedDiff)) {
+      return false;
+    }
+  } else {
+    const expectedSessions = String(input.sessions_count);
+    if (!recap.plot_twist.insight.includes(expectedSessions)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function questsTargetRelevantTopics(
+  questItems: WeeklyQuestItem[],
+  flopTopic: string,
+  ghostTopics: string[]
+): boolean {
+  const allowedTopics = new Set([flopTopic, ...ghostTopics].filter((topic) => Boolean(topic)));
+  return questItems.every((item) => {
+    const action = item.action.toLowerCase();
+    const hasAllowedTopic = Array.from(allowedTopics).some((topic) => action.includes(topic.toLowerCase()));
+    const genericSprint =
+      action.includes('review sprint') ||
+      action.includes('daily') ||
+      action.includes('weak concept');
+    return hasAllowedTopic || genericSprint;
+  });
 }
 
 function emptyRecap(): WeeklyInsightsRecap {

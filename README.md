@@ -18,6 +18,15 @@ This project was created with **clean mode** — all Claude Code infrastructure 
 
 Run `/help` in Claude Code to see all 16 available commands.
 
+Agent eval command:
+
+```bash
+npm run eval:agents
+```
+
+This runs rubric-based quality checks for Crash Course and Weekly Insights agents
+using curated fixtures in `src/eval/fixtures.ts`.
+
 ## Frontend Agent Calls
 
 Typed frontend helpers are available in `src/client/agents-api.ts`.

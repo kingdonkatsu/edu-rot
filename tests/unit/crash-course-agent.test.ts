@@ -36,7 +36,9 @@ describe('runCrashCourseAgent', () => {
   it('passes checker on first attempt with default deps', async () => {
     const result = await runCrashCourseAgent(makeInput());
     expect(result.attempts).toBe(1);
-    expect(result.cards.length).toBeGreaterThanOrEqual(4);
+    expect(result.cards.length).toBe(5);
+    expect(result.sora_video_prompt.engine).toBe('sora.ai');
+    expect(result.sora_video_prompt.scenes).toHaveLength(5);
     expect(result.checker_history).toHaveLength(1);
     expect(result.checker_history[0].passed).toBe(true);
   });
@@ -101,5 +103,18 @@ describe('runCrashCourseAgent', () => {
     }));
 
     expect(result.cards.every((card) => !card.body.includes('..'))).toBe(true);
+  });
+
+  it('uses brainrot tone while keeping required structure', async () => {
+    const result = await runCrashCourseAgent(makeInput());
+    const allText = result.cards.map((card) => `${card.title} ${card.body}`).join(' ').toLowerCase();
+    expect(allText.includes('no cap') || allText.includes('vibe check')).toBe(true);
+    expect(result.cards.map((card) => card.stage)).toEqual([
+      'specific_mistake',
+      'intuition_analogy',
+      'actual_concept',
+      'worked_example',
+      'practice_question',
+    ]);
   });
 });

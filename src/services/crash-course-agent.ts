@@ -5,12 +5,34 @@ import type {
   CrashCourseAgentOutput,
   CrashCourseCard,
   CrashCourseMakerOutput,
+  CrashCourseSoraPrompt,
 } from '../types.js';
 
 const MAX_RETRIES = 2;
 const MAX_ATTEMPTS = MAX_RETRIES + 1;
 const MAX_CARD_BODY_CHARS = 280;
+const MAX_CARD_SENTENCES = 3;
 const DISCOURAGING_TERMS = ['stupid', 'idiot', 'lazy', 'hopeless', 'dumb'];
+const BRAINROT_MARKERS = [
+  'no cap',
+  'lowkey',
+  'speedrun',
+  'npc',
+  'main character arc',
+  'brain lag',
+  'vibe check',
+  'glitch',
+];
+const BIAS_PATTERNS = [
+  /\bboys?\s+are\b/i,
+  /\bgirls?\s+are\b/i,
+  /\bmen\s+are\b/i,
+  /\bwomen\s+are\b/i,
+  /\byour\s+race\b/i,
+  /\byour\s+religion\b/i,
+  /\byour\s+gender\b/i,
+  /\byour\s+kind\b/i,
+];
 const REQUIRED_STAGES: CrashCourseCard['stage'][] = [
   'specific_mistake',
   'intuition_analogy',
@@ -18,6 +40,7 @@ const REQUIRED_STAGES: CrashCourseCard['stage'][] = [
   'worked_example',
   'practice_question',
 ];
+const TARGET_CARD_COUNT = REQUIRED_STAGES.length;
 
 export interface CrashCourseAgentDeps {
   maker?: (
@@ -49,6 +72,7 @@ export async function runCrashCourseAgent(
     if (check.passed) {
       return {
         cards: latestDraft.cards,
+        sora_video_prompt: buildSoraVideoPrompt(input, latestDraft.cards),
         attempts: attempt,
         checker_history: checkerHistory,
       };
@@ -59,6 +83,7 @@ export async function runCrashCourseAgent(
 
   return {
     cards: latestDraft.cards,
+    sora_video_prompt: buildSoraVideoPrompt(input, latestDraft.cards),
     attempts: MAX_ATTEMPTS,
     checker_history: checkerHistory,
   };
@@ -71,7 +96,7 @@ async function defaultCrashCourseMaker(
   const errorLabel = normalizeLabel(input.error_classification);
   const strengths = input.known_strengths.length > 0
     ? input.known_strengths.join(', ')
-    : 'you already remember the basics';
+    : 'core basics from earlier reps';
   const analogy = normalizeSentence(
     input.rag.analogies[0] ?? `think of ${input.subtopic} like building with Lego blocks`
   );
@@ -89,39 +114,41 @@ async function defaultCrashCourseMaker(
   const cards: CrashCourseCard[] = [
     {
       stage: 'specific_mistake',
-      title: 'Where It Went Sideways',
+      title: 'Bug Report: Brain Glitch',
       body: clampToScreen(
-        `You got hit by ${errorLabel} on ${input.topic} -> ${input.subtopic}. ` +
-        `You still have strengths in ${strengths}, so this is a fixable gap.`
+        `No cap: your brain hit a ${errorLabel} glitch on ${input.topic} -> ${input.subtopic}. ` +
+        `Lowkey good news: you already have ${strengths}, so this is fixable in one clean rep.`
       ),
     },
     {
       stage: 'intuition_analogy',
-      title: 'Brainrot Analogy',
+      title: 'Vibe Check Analogy',
       body: clampToScreen(
-        `Imagine this: ${analogy}. Same logic, different skin. Keep the same order every time and it clicks.`
+        `Main character arc time: ${analogy}. Same mechanic, different skin. ` +
+        `If you keep order locked, you stop the NPC-style random steps.`
       ),
     },
     {
       stage: 'actual_concept',
-      title: 'What Is Actually True',
+      title: 'Actual Concept (No Delulu)',
       body: clampToScreen(
-        `Core concept: ${concept}. Do not skip the middle step; that is where ${errorLabel} usually appears.`
+        `Real rule: ${concept}. Do not speedrun past the middle step; ` +
+        `that exact moment is where ${errorLabel} usually spawns.`
       ),
     },
     {
       stage: 'worked_example',
-      title: 'Worked Example',
+      title: 'Worked Example Speedrun',
       body: clampToScreen(
-        `${workedExample} Focus check: name the step that prevents ${errorLabel} before finalizing.`
+        `${workedExample} Vibe check: identify the exact line that blocked ${errorLabel}.`
       ),
     },
     {
       stage: 'practice_question',
-      title: 'Your Targeted Practice',
+      title: 'Practice Boss Fight',
       body: clampToScreen(
-        `Practice prompt: Solve one new ${input.subtopic} problem and explicitly avoid ${misconception}. ` +
-        `After solving, explain which step blocked the ${errorLabel} mistake.`
+        `Practice question: solve one fresh ${input.subtopic} problem while avoiding ${misconception}. ` +
+        `Which step prevented the ${errorLabel} mistake and why?`
       ),
     },
   ];
@@ -136,10 +163,10 @@ async function defaultCrashCourseChecker(
   const issues: AgentCheckerIssue[] = [];
   const cards = draft.cards;
 
-  if (cards.length < 4 || cards.length > 6) {
+  if (cards.length !== TARGET_CARD_COUNT) {
     issues.push({
-      message: 'Card count must be between 4 and 6.',
-      fix_instruction: 'Regenerate with 4-6 cards only.',
+      message: `Card count must be exactly ${TARGET_CARD_COUNT}.`,
+      fix_instruction: `Regenerate with exactly ${TARGET_CARD_COUNT} cards in required order.`,
     });
   }
 
@@ -171,7 +198,30 @@ async function defaultCrashCourseChecker(
         card_index: index,
       });
     }
+
+    if (containsBiasRisk(lowered)) {
+      issues.push({
+        message: `Card ${index + 1} may contain biased language.`,
+        fix_instruction: `Rewrite card ${index + 1} to remove demographic stereotypes or targeting.`,
+        card_index: index,
+      });
+    }
+
+    if (countSentences(card.body) > MAX_CARD_SENTENCES) {
+      issues.push({
+        message: `Card ${index + 1} includes too many ideas.`,
+        fix_instruction: `Keep card ${index + 1} to one idea (${MAX_CARD_SENTENCES} sentences max).`,
+        card_index: index,
+      });
+    }
   });
+
+  if (!hasBrainrotTone(cards)) {
+    issues.push({
+      message: 'Deck tone is not brainrot enough for target style.',
+      fix_instruction: 'Use playful brainrot phrasing (e.g., vibe check, no cap, main character arc) while staying respectful.',
+    });
+  }
 
   const mistakeCard = cards[0];
   if (mistakeCard) {
@@ -193,6 +243,14 @@ async function defaultCrashCourseChecker(
     });
   }
 
+  const workedExampleCard = cards.find((card) => card.stage === 'worked_example');
+  if (workedExampleCard && !hasRAGGrounding(workedExampleCard.body, input.rag.worked_examples)) {
+    issues.push({
+      message: 'Worked example is not grounded in retrieved worked examples.',
+      fix_instruction: 'Ground card 4 in retrieved worked example keywords; avoid invented examples.',
+    });
+  }
+
   const practiceCard = cards.find((card) => card.stage === 'practice_question');
   if (!practiceCard) {
     issues.push({
@@ -209,6 +267,39 @@ async function defaultCrashCourseChecker(
   return {
     passed: issues.length === 0,
     issues,
+  };
+}
+
+function buildSoraVideoPrompt(
+  input: CrashCourseAgentInput,
+  cards: CrashCourseCard[]
+): CrashCourseSoraPrompt {
+  const errorLabel = normalizeLabel(input.error_classification);
+  const misconception = normalizeSentence(
+    input.rag.misconception_data[0] ?? `${errorLabel} in ${input.subtopic}`
+  );
+
+  return {
+    engine: 'sora.ai',
+    tone: 'brainrot, playful, fast-paced, respectful, never mean',
+    audience: `student at ${input.mastery_level} mastery`,
+    output_format: 'vertical_short',
+    video_objective:
+      `Fix ${errorLabel} on ${input.topic} -> ${input.subtopic} by moving from mistake to intuition, concept, example, and targeted practice.`,
+    safety_constraints: [
+      'No insults or discouraging language.',
+      'No demographic stereotypes or identity-based assumptions.',
+      'Use only provided learning context; do not invent learner history or stats.',
+    ],
+    scenes: cards.map((card) => ({
+      stage: card.stage,
+      scene_goal: getSceneGoal(card.stage),
+      on_screen_visual: getSceneVisual(card.stage, input),
+      narration_prompt: card.body,
+      misconception_target: misconception,
+    })),
+    final_call_to_action:
+      `Ask learner to answer the practice question and explain the step that prevents ${errorLabel}.`,
   };
 }
 
@@ -232,13 +323,59 @@ function hasRAGGrounding(cardText: string, candidates: string[]): boolean {
     return true;
   }
   const text = cardText.toLowerCase();
+  const normalizedCard = normalizeForMatch(cardText);
   return candidates.some((candidate) => {
     const keywords = extractKeywords(candidate);
     if (keywords.length === 0) {
-      return false;
+      return normalizedCard.includes(normalizeForMatch(candidate));
     }
     return keywords.some((keyword) => text.includes(keyword));
   });
+}
+
+function hasBrainrotTone(cards: CrashCourseCard[]): boolean {
+  const text = cards.map((card) => `${card.title} ${card.body}`.toLowerCase()).join(' ');
+  const markerHits = BRAINROT_MARKERS.filter((marker) => text.includes(marker));
+  return markerHits.length >= 2;
+}
+
+function countSentences(text: string): number {
+  const matches = text.match(/[.!?](\s|$)/g);
+  return matches ? matches.length : 1;
+}
+
+function containsBiasRisk(text: string): boolean {
+  return BIAS_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function getSceneGoal(stage: CrashCourseCard['stage']): string {
+  switch (stage) {
+    case 'specific_mistake':
+      return 'Name the exact diagnosed mistake without shaming the learner.';
+    case 'intuition_analogy':
+      return 'Build intuition using an analogy tied to the misconception.';
+    case 'actual_concept':
+      return 'State the accurate concept and the key rule to follow.';
+    case 'worked_example':
+      return 'Demonstrate the concept with a grounded worked example.';
+    case 'practice_question':
+      return 'Prompt active recall with a targeted practice question.';
+  }
+}
+
+function getSceneVisual(stage: CrashCourseCard['stage'], input: CrashCourseAgentInput): string {
+  switch (stage) {
+    case 'specific_mistake':
+      return `Show ${input.subtopic} question with highlighted wrong step.`;
+    case 'intuition_analogy':
+      return `Animate analogy: ${normalizeSentence(input.rag.analogies[0] ?? 'simple real-world comparison')}.`;
+    case 'actual_concept':
+      return 'Overlay one core rule with minimal visual clutter.';
+    case 'worked_example':
+      return 'Step-by-step whiteboard animation of the example.';
+    case 'practice_question':
+      return 'Display one clean prompt card with pause timer for student response.';
+  }
 }
 
 function targetsMisconception(cardText: string, input: CrashCourseAgentInput): boolean {
@@ -261,4 +398,11 @@ function extractKeywords(text: string): string[] {
     .split(/\s+/)
     .filter((word) => word.length >= 4);
   return Array.from(new Set(words)).slice(0, 8);
+}
+
+function normalizeForMatch(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
 }
