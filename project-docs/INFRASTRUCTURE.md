@@ -27,6 +27,8 @@ npm start            # Runs compiled JS from dist/
 |--------|------|-------------|
 | GET | `/health` | Health check |
 | POST | `/api/v1/events` | Process LMS interaction event |
+| POST | `/api/v1/agents/crash-course` | Generate crash course swipe cards |
+| POST | `/api/v1/agents/weekly-insights` | Generate weekly insights recap |
 
 ## Environment Variables
 

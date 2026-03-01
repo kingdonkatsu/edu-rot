@@ -18,6 +18,24 @@ This project was created with **clean mode** — all Claude Code infrastructure 
 
 Run `/help` in Claude Code to see all 16 available commands.
 
+## Frontend Agent Calls
+
+Typed frontend helpers are available in `src/client/agents-api.ts`.
+
+Example usage:
+
+```ts
+import { postCrashCourseAgent, postWeeklyInsightsAgent } from './src/client/agents-api.js';
+
+const crashCourse = await postCrashCourseAgent(payload, {
+  baseUrl: 'http://localhost:3000',
+});
+
+const weeklyInsights = await postWeeklyInsightsAgent(weeklyPayload, {
+  baseUrl: 'http://localhost:3000',
+});
+```
+
 ## Project Documentation
 
 | Document | Purpose |

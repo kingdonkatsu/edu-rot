@@ -20,6 +20,8 @@ State is persisted via an `IStateStore` adapter interface. The hackathon build u
 | EMA | `src/services/ema.ts` | Exponential Moving Average |
 | Flags | `src/services/flags.ts` | Analytical flag evaluation |
 | Intervention | `src/services/intervention.ts` | Priority + recommended actions |
+| Crash Course Agent | `src/services/crash-course-agent.ts` | Maker-Checker generation of swipe cards |
+| Weekly Insights Agent | `src/services/weekly-insights-agent.ts` | Maker-Checker weekly recap generation |
 | State Store | `src/adapters/state-store.ts` | IStateStore interface + InMemoryStateStore |
 
 ## Data Flow
@@ -40,6 +42,28 @@ POST /api/v1/events
 ```
 
 Critical: Decay runs before BKT so the Bayesian update uses a time-adjusted prior.
+
+## Agent Flows
+
+### Crash Course Agent (`POST /api/v1/agents/crash-course`)
+
+```
+Validate payload
+  -> Maker generates 4-6 swipe cards from topic/error/mastery/RAG context
+  -> Checker validates accuracy, target-misconception fit, tone, and card sizing
+  -> On failure: regenerate with checker fix instructions (max 2 retries)
+  -> Return approved card deck
+```
+
+### Weekly Insights Agent (`POST /api/v1/agents/weekly-insights`)
+
+```
+Validate weekly learning state
+  -> Maker generates fixed 5-part recap (Main Character, Flop Era, Ghost Topics, Plot Twist, Weekly Quest)
+  -> Checker validates stat consistency, recommendation scope, tone, and contradictions
+  -> On failure: regenerate with checker fix instructions (max 2 retries)
+  -> Return approved recap payload (for storage + push delivery)
+```
 
 ## Dependencies
 
