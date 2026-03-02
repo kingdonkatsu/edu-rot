@@ -240,6 +240,7 @@ export interface WeeklyInsightsAgentOutput {
   summary_kpis: WeeklyInsightsSummaryKPIs;
   attempts: number;
   checker_history: AgentCheckerResult[];
+  video_url?: string;
 }
 
 // --- Analytics ---

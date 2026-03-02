@@ -14,11 +14,11 @@ export function createCrashCourseHandler() {
     try {
       const result = await runCrashCourseAgent(validation.data!);
 
-      // Generate video for CrashCourse (using first card summary)
-      if (result.cards.length > 0) {
+      // Generate video for CrashCourse (using script content)
+      if (result.script) {
         try {
           const { generateBrainRotVideo } = await import('../services/video-service.js');
-          result.video_url = await generateBrainRotVideo(result.cards[0].body, validation.data!.student_id);
+          result.video_url = await generateBrainRotVideo(result.script.full_script, validation.data!.student_id);
         } catch (vErr) {
           console.error('[handleCrashCourse] Video generation failed:', vErr);
         }
