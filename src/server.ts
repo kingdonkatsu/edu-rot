@@ -1,3 +1,9 @@
+import { webcrypto } from 'crypto';
+if (!globalThis.crypto) {
+  // @ts-expect-error polyfill for Node < 19
+  globalThis.crypto = webcrypto;
+}
+
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
