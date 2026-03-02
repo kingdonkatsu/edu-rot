@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feature/azure-integration # Allow testing from your current branch
   workflow_dispatch:
 
 jobs:
