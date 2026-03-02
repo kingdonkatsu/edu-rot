@@ -14,37 +14,51 @@ const baseInput: CrashCourseAgentInput = {
   mastery_level: 'novice',
   known_strengths: ['arithmetic'],
   rag: {
-    concept_explanations: ['A quadratic equation has the form ax² + bx + c = 0 and is solved with the quadratic formula.'],
-    misconception_data: ['Students often apply lucky_guess logic and treat a guessed answer as real mastery.'],
-    analogies: ['Think of the quadratic formula like a GPS giving two possible exits.'],
-    worked_examples: ['Solve x²-5x+6=0 by factoring: (x-2)(x-3)=0 so x=2 or x=3. Apply quadratic rule.'],
+    concept_explanations: [
+      'A quadratic equation has the form ax squared plus bx plus c equals zero and can be solved using factoring or the quadratic formula.',
+    ],
+    misconception_data: [
+      'Students often keep the lucky_guess pattern and skip verification of both roots.',
+    ],
+    analogies: [
+      'Think of the quadratic formula like a GPS giving two exits from one highway.',
+    ],
+    worked_examples: [
+      'Solve x squared minus five x plus six equals zero by factoring into x minus two and x minus three.',
+    ],
   },
 };
 
 describe('defaultCrashCourseMaker', () => {
-  it('produces exactly 5 cards', () => {
+  it('produces exactly 6 sections', () => {
     const output = defaultCrashCourseMaker(baseInput, []);
-    expect(output.cards).toHaveLength(5);
+    expect(output.script.sections).toHaveLength(6);
   });
 
-  it('cards follow fixed stage order', () => {
+  it('uses required section order', () => {
     const output = defaultCrashCourseMaker(baseInput, []);
-    const expectedStages = ['specific_mistake', 'intuition_analogy', 'actual_concept', 'worked_example', 'practice_question'];
-    output.cards.forEach((card, i) => {
-      expect(card.stage).toBe(expectedStages[i]);
-    });
+    expect(output.script.sections.map((section) => section.label)).toEqual([
+      'hook',
+      'misconception_callout',
+      'intuition_bridge',
+      'concept_explanation',
+      'worked_example',
+      'practice_cta',
+    ]);
   });
 
-  it('each card body is ≤ 280 characters', () => {
+  it('builds coherent full_script and word_count', () => {
     const output = defaultCrashCourseMaker(baseInput, []);
-    output.cards.forEach(card => {
-      expect(card.body.length).toBeLessThanOrEqual(280);
-    });
+    const expected = output.script.sections.map((section) => section.text.trim()).join(' ').trim();
+    expect(output.script.full_script).toBe(expected);
+    expect(output.script.word_count).toBeGreaterThanOrEqual(120);
+    expect(output.script.word_count).toBeLessThanOrEqual(180);
   });
 
-  it('card 1 body contains the error_classification', () => {
+  it('misconception_callout mentions error classification', () => {
     const output = defaultCrashCourseMaker(baseInput, []);
-    expect(output.cards[0].body.toLowerCase()).toContain('lucky_guess');
+    const section = output.script.sections.find((item) => item.label === 'misconception_callout');
+    expect(section?.text.toLowerCase()).toContain('lucky_guess');
   });
 });
 
@@ -56,149 +70,231 @@ describe('defaultCrashCourseChecker', () => {
     expect(result.issues).toHaveLength(0);
   });
 
-  it('fails if card count is wrong', () => {
+  it('fails section-count', () => {
     const output = defaultCrashCourseMaker(baseInput, []);
-    const badOutput = { ...output, cards: output.cards.slice(0, 3) };
+    const badOutput: CrashCourseAgentOutput = {
+      ...output,
+      script: {
+        ...output.script,
+        sections: output.script.sections.slice(0, 5),
+      },
+    };
     const result = defaultCrashCourseChecker(badOutput, baseInput, 1);
     expect(result.passed).toBe(false);
-    expect(result.issues.some(i => i.gate === 'card-count-exact-5')).toBe(true);
+    expect(result.issues.some((issue) => issue.gate === 'section-count')).toBe(true);
   });
 
-  it('fails if stage order is wrong', () => {
+  it('fails section-order', () => {
     const output = defaultCrashCourseMaker(baseInput, []);
-    const swapped = [...output.cards];
+    const swapped = [...output.script.sections];
     [swapped[0], swapped[1]] = [swapped[1], swapped[0]];
-    const badOutput = { ...output, cards: swapped };
+    const badOutput: CrashCourseAgentOutput = {
+      ...output,
+      script: { ...output.script, sections: swapped },
+    };
     const result = defaultCrashCourseChecker(badOutput, baseInput, 1);
-    expect(result.passed).toBe(false);
-    expect(result.issues.some(i => i.gate === 'required-stage-order')).toBe(true);
+    expect(result.issues.some((issue) => issue.gate === 'section-order')).toBe(true);
   });
 
-  it('fails if card body exceeds 280 characters', () => {
+  it('fails word-count-range', () => {
     const output = defaultCrashCourseMaker(baseInput, []);
-    const longCards = output.cards.map((c, i) =>
-      i === 0 ? { ...c, body: 'x'.repeat(300) } : c
+    const badOutput: CrashCourseAgentOutput = {
+      ...output,
+      script: { ...output.script, full_script: 'too short', word_count: 2 },
+    };
+    const result = defaultCrashCourseChecker(badOutput, baseInput, 1);
+    expect(result.issues.some((issue) => issue.gate === 'word-count-range')).toBe(true);
+  });
+
+  it('fails section-non-empty', () => {
+    const output = defaultCrashCourseMaker(baseInput, []);
+    const sections = output.script.sections.map((section, index) =>
+      index === 2 ? { ...section, text: 'too short' } : section
     );
-    const badOutput = { ...output, cards: longCards };
+    const badOutput: CrashCourseAgentOutput = {
+      ...output,
+      script: { ...output.script, sections },
+    };
     const result = defaultCrashCourseChecker(badOutput, baseInput, 1);
-    expect(result.passed).toBe(false);
-    expect(result.issues.some(i => i.gate === 'one-screen-card-size')).toBe(true);
+    expect(result.issues.some((issue) => issue.gate === 'section-non-empty')).toBe(true);
   });
 
-  it('fails if discouraging language is present', () => {
+  it('fails supportive-tone', () => {
     const output = defaultCrashCourseMaker(baseInput, []);
-    const badCards = output.cards.map((c, i) =>
-      i === 0 ? { ...c, body: 'You are so stupid for getting this wrong.' } : c
+    const sections = output.script.sections.map((section, index) =>
+      index === 0 ? { ...section, text: 'you are stupid and this is hopeless' } : section
     );
-    const badOutput = { ...output, cards: badCards };
+    const fullScript = sections.map((section) => section.text).join(' ');
+    const badOutput: CrashCourseAgentOutput = {
+      ...output,
+      script: { ...output.script, sections, full_script: fullScript, word_count: fullScript.split(/\s+/).length },
+    };
     const result = defaultCrashCourseChecker(badOutput, baseInput, 1);
-    expect(result.passed).toBe(false);
-    expect(result.issues.some(i => i.gate === 'supportive-tone')).toBe(true);
+    expect(result.issues.some((issue) => issue.gate === 'supportive-tone')).toBe(true);
   });
 
-  it('fails if brainrot markers are missing', () => {
+  it('fails no-bias-risk', () => {
     const output = defaultCrashCourseMaker(baseInput, []);
-    const flatCards = output.cards.map(c => ({
-      ...c,
-      title: 'Plain title',
-      body: 'This is a plain educational card without any internet slang.',
+    const sections = output.script.sections.map((section, index) =>
+      index === 0 ? { ...section, text: 'boys are naturally better here' } : section
+    );
+    const fullScript = sections.map((section) => section.text).join(' ');
+    const badOutput: CrashCourseAgentOutput = {
+      ...output,
+      script: { ...output.script, sections, full_script: fullScript, word_count: fullScript.split(/\s+/).length },
+    };
+    const result = defaultCrashCourseChecker(badOutput, baseInput, 1);
+    expect(result.issues.some((issue) => issue.gate === 'no-bias-risk')).toBe(true);
+  });
+
+  it('fails brainrot-tone', () => {
+    const output = defaultCrashCourseMaker(baseInput, []);
+    const plainSections = output.script.sections.map((section) => ({
+      ...section,
+      text: 'This section explains the lesson in plain neutral language for classroom delivery.',
     }));
-    const badOutput = { ...output, cards: flatCards };
+    const fullScript = plainSections.map((section) => section.text).join(' ');
+    const badOutput: CrashCourseAgentOutput = {
+      ...output,
+      script: { ...output.script, sections: plainSections, full_script: fullScript, word_count: fullScript.split(/\s+/).length },
+    };
     const result = defaultCrashCourseChecker(badOutput, baseInput, 1);
-    expect(result.passed).toBe(false);
-    expect(result.issues.some(i => i.gate === 'brainrot-tone')).toBe(true);
+    expect(result.issues.some((issue) => issue.gate === 'brainrot-tone')).toBe(true);
   });
 
-  it('fails if card 1 body does not contain error_classification', () => {
+  it('fails error-targeting', () => {
     const output = defaultCrashCourseMaker(baseInput, []);
-    const badCards = [...output.cards];
-    badCards[0] = { ...badCards[0], body: 'No cap, you did great overall. Vibe check passed.' };
-    const badOutput = { ...output, cards: badCards };
+    const sections = output.script.sections.map((section) =>
+      section.label === 'misconception_callout'
+        ? { ...section, text: 'This section avoids naming the specific issue by design.' }
+        : section
+    );
+    const fullScript = sections.map((section) => section.text).join(' ');
+    const badOutput: CrashCourseAgentOutput = {
+      ...output,
+      script: { ...output.script, sections, full_script: fullScript, word_count: fullScript.split(/\s+/).length },
+    };
     const result = defaultCrashCourseChecker(badOutput, baseInput, 1);
-    expect(result.passed).toBe(false);
-    expect(result.issues.some(i => i.gate === 'diagnosed-error-targeting')).toBe(true);
+    expect(result.issues.some((issue) => issue.gate === 'error-targeting')).toBe(true);
+  });
+
+  it('fails concept-grounding', () => {
+    const output = defaultCrashCourseMaker(baseInput, []);
+    const sections = output.script.sections.map((section) =>
+      section.label === 'concept_explanation'
+        ? { ...section, text: 'Completely unrelated astronomy content with no overlap.' }
+        : section
+    );
+    const fullScript = sections.map((section) => section.text).join(' ');
+    const badOutput: CrashCourseAgentOutput = {
+      ...output,
+      script: { ...output.script, sections, full_script: fullScript, word_count: fullScript.split(/\s+/).length },
+    };
+    const result = defaultCrashCourseChecker(badOutput, baseInput, 1);
+    expect(result.issues.some((issue) => issue.gate === 'concept-grounding')).toBe(true);
+  });
+
+  it('fails example-grounding', () => {
+    const output = defaultCrashCourseMaker(baseInput, []);
+    const sections = output.script.sections.map((section) =>
+      section.label === 'worked_example'
+        ? { ...section, text: 'No relation to the provided problem solving steps at all.' }
+        : section
+    );
+    const fullScript = sections.map((section) => section.text).join(' ');
+    const badOutput: CrashCourseAgentOutput = {
+      ...output,
+      script: { ...output.script, sections, full_script: fullScript, word_count: fullScript.split(/\s+/).length },
+    };
+    const result = defaultCrashCourseChecker(badOutput, baseInput, 1);
+    expect(result.issues.some((issue) => issue.gate === 'example-grounding')).toBe(true);
+  });
+
+  it('fails practice-targeting', () => {
+    const output = defaultCrashCourseMaker(baseInput, []);
+    const sections = output.script.sections.map((section) =>
+      section.label === 'practice_cta'
+        ? { ...section, text: 'Practice later with no mention of specific misconceptions.' }
+        : section
+    );
+    const fullScript = sections.map((section) => section.text).join(' ');
+    const badOutput: CrashCourseAgentOutput = {
+      ...output,
+      script: { ...output.script, sections, full_script: fullScript, word_count: fullScript.split(/\s+/).length },
+    };
+    const result = defaultCrashCourseChecker(badOutput, baseInput, 1);
+    expect(result.issues.some((issue) => issue.gate === 'practice-targeting')).toBe(true);
+  });
+
+  it('fails full-script-coherence', () => {
+    const output = defaultCrashCourseMaker(baseInput, []);
+    const badOutput: CrashCourseAgentOutput = {
+      ...output,
+      script: { ...output.script, full_script: 'This does not match sections at all.', word_count: 9 },
+    };
+    const result = defaultCrashCourseChecker(badOutput, baseInput, 1);
+    expect(result.issues.some((issue) => issue.gate === 'full-script-coherence')).toBe(true);
   });
 });
 
 describe('runCrashCourseAgent control loop', () => {
-  it('returns output on first pass when checker passes', async () => {
+  it('returns output when checker passes', async () => {
     const output = await runCrashCourseAgent(baseInput);
-    expect(output.cards).toHaveLength(5);
+    expect(output.script.sections).toHaveLength(6);
     expect(output.attempts).toBeGreaterThanOrEqual(1);
     expect(output.attempts).toBeLessThanOrEqual(3);
     expect(output.checker_history).toHaveLength(output.attempts);
   });
 
-  it('retries up to 3 times and fails-open when checker always fails', async () => {
-    const alwaysFailChecker = (out: CrashCourseAgentOutput, _in: CrashCourseAgentInput, attempt: number) => ({
+  it('retries up to 3 times and fails open if checker always fails', async () => {
+    const alwaysFail = (_out: CrashCourseAgentOutput, _in: CrashCourseAgentInput, attempt: number) => ({
       passed: false,
-      issues: [{ gate: 'test-gate', message: 'forced failure' }],
+      issues: [{ gate: 'forced', message: 'forced failure' }],
       attempt,
     });
 
-    const output = await runCrashCourseAgent(baseInput, { checker: alwaysFailChecker });
-    // Fail-open: returns last draft
-    expect(output).toBeDefined();
+    const output = await runCrashCourseAgent(baseInput, { checker: alwaysFail });
     expect(output.attempts).toBe(3);
     expect(output.checker_history).toHaveLength(3);
-    expect(output.checker_history.every(r => !r.passed)).toBe(true);
+    expect(output.checker_history.every((item) => !item.passed)).toBe(true);
   });
 
-  it('accumulates issues across retries (no whack-a-mole)', async () => {
-    let callCount = 0;
-    const trackingChecker = (out: CrashCourseAgentOutput, _in: CrashCourseAgentInput, attempt: number) => {
-      callCount++;
+  it('stops early when checker passes on second attempt', async () => {
+    let calls = 0;
+    const passSecond = (_out: CrashCourseAgentOutput, _in: CrashCourseAgentInput, attempt: number) => {
+      calls += 1;
       return {
-        passed: false,
-        issues: [{ gate: `gate-${callCount}`, message: `issue ${callCount}` }],
+        passed: calls >= 2,
+        issues: calls < 2 ? [{ gate: 'retry', message: 'retry once' }] : [],
         attempt,
       };
     };
 
-    const capturedIssues: string[] = [];
-    const trackingMaker = (input: CrashCourseAgentInput, priorIssues: { gate: string; message: string }[]) => {
-      capturedIssues.push(...priorIssues.map(i => i.gate));
-      return defaultCrashCourseMaker(input, priorIssues);
-    };
-
-    await runCrashCourseAgent(baseInput, { maker: trackingMaker, checker: trackingChecker });
-
-    // By attempt 3, priorIssues should have gates from earlier attempts
-    expect(capturedIssues.includes('gate-1')).toBe(true);
-    expect(capturedIssues.includes('gate-2')).toBe(true);
-  });
-
-  it('stops early when checker passes on retry', async () => {
-    let callCount = 0;
-    const passOnSecondChecker = (out: CrashCourseAgentOutput, _in: CrashCourseAgentInput, attempt: number) => {
-      callCount++;
-      return {
-        passed: callCount >= 2,
-        issues: callCount < 2 ? [{ gate: 'test', message: 'not yet' }] : [],
-        attempt,
-      };
-    };
-
-    const output = await runCrashCourseAgent(baseInput, { checker: passOnSecondChecker });
+    const output = await runCrashCourseAgent(baseInput, { checker: passSecond });
     expect(output.attempts).toBe(2);
   });
 
-  it('accepts dependency-injected maker', async () => {
-    const fixedOutput: CrashCourseAgentOutput = {
-      cards: [
-        { stage: 'specific_mistake', title: 'T1', body: 'No cap this is the lucky_guess glitch.' },
-        { stage: 'intuition_analogy', title: 'T2', body: 'Lowkey think of it like a GPS. Speedrun.' },
-        { stage: 'actual_concept', title: 'T3', body: 'The quadratic rule: ax²+bx+c=0. Main character arc.' },
-        { stage: 'worked_example', title: 'T4', body: 'Solve x²-5x+6=0 by factoring quadratic. NPC defeated.' },
-        { stage: 'practice_question', title: 'T5', body: 'Now try: solve quadratic using lucky_guess pattern fix.' },
-      ],
-      attempts: 1,
-      checker_history: [],
+  it('passes prior issues back into maker across retries', async () => {
+    const captured: string[] = [];
+    let calls = 0;
+
+    const checker = (_out: CrashCourseAgentOutput, _in: CrashCourseAgentInput, attempt: number) => {
+      calls += 1;
+      return {
+        passed: false,
+        issues: [{ gate: `gate-${calls}`, message: `issue-${calls}` }],
+        attempt,
+      };
     };
 
-    const mockMaker = () => fixedOutput;
-    const output = await runCrashCourseAgent(baseInput, { maker: mockMaker });
-    expect(output.checker_history.length).toBeGreaterThan(0);
-    expect(output.checker_history[0].passed).toBe(true);
+    const maker = (input: CrashCourseAgentInput, priorIssues: { gate: string; message: string }[]) => {
+      captured.push(...priorIssues.map((issue) => issue.gate));
+      return defaultCrashCourseMaker(input, priorIssues);
+    };
+
+    await runCrashCourseAgent(baseInput, { maker, checker });
+
+    expect(captured).toContain('gate-1');
+    expect(captured).toContain('gate-2');
   });
 });

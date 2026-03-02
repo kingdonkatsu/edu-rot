@@ -41,6 +41,17 @@ describe('defaultWeeklyInsightsMaker', () => {
     expect(output.recap.weekly_quest).toBeDefined();
   });
 
+  it('produces summary_kpis with correct shape and values', () => {
+    const output = defaultWeeklyInsightsMaker(baseInput, []);
+    expect(output.summary_kpis).toBeDefined();
+    expect(output.summary_kpis.top_topic).toBe('Algebra');
+    expect(output.summary_kpis.top_gain).toBe(0.15);
+    expect(output.summary_kpis.days_active).toBe(5);
+    expect(output.summary_kpis.sessions_count).toBe(8);
+    expect(output.summary_kpis.quest_count).toBeGreaterThanOrEqual(1);
+    expect(typeof output.summary_kpis.accuracy_this_week).toBe('number');
+  });
+
   it('main_character matches top improved topic', () => {
     const output = defaultWeeklyInsightsMaker(baseInput, []);
     expect(output.recap.main_character.topic).toBe('Algebra');

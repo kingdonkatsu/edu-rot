@@ -1,13 +1,12 @@
 import type {
   CrashCourseAgentInput,
   CrashCourseAgentOutput,
-  CrashCourseCard,
-  CrashCourseCardStage,
+  VoiceoverScript,
+  VoiceoverSectionLabel,
   AgentCheckerResult,
   AgentCheckerIssue,
 } from '../types.js';
 
-// --- Brainrot markers required by the PRD ---
 const BRAINROT_MARKERS = [
   'no cap',
   'lowkey',
@@ -32,15 +31,35 @@ const BIAS_PATTERNS = [
   /\b(immigrants?|foreigners?)\s+(are|were|can't)\b/i,
 ];
 
-const CARD_STAGE_ORDER: CrashCourseCardStage[] = [
-  'specific_mistake',
-  'intuition_analogy',
-  'actual_concept',
+const SECTION_ORDER: VoiceoverSectionLabel[] = [
+  'hook',
+  'misconception_callout',
+  'intuition_bridge',
+  'concept_explanation',
   'worked_example',
-  'practice_question',
+  'practice_cta',
 ];
 
-// --- Maker ---
+function wordCount(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function tokenize(text: string): string[] {
+  return text.toLowerCase().split(/\W+/).filter(Boolean);
+}
+
+function firstSentence(text: string): string {
+  const match = text.match(/^.+?[.!?]+(?=\s|$)/);
+  return (match ? match[0] : text).trim();
+}
+
+function keywordSet(values: string[]): Set<string> {
+  return new Set(values.join(' ').toLowerCase().split(/\W+/).filter((w) => w.length > 4));
+}
+
+function hasKeywordOverlap(text: string, keywords: Set<string>): boolean {
+  return tokenize(text).some((w) => w.length > 4 && keywords.has(w));
+}
 
 export type CrashCourseMaker = (
   input: CrashCourseAgentInput,
@@ -51,84 +70,70 @@ export function defaultCrashCourseMaker(
   input: CrashCourseAgentInput,
   priorIssues: AgentCheckerIssue[]
 ): CrashCourseAgentOutput {
-  const { subtopic, error_classification, known_strengths, rag } = input;
+  const { topic, subtopic, error_classification, known_strengths, rag } = input;
 
-  const issueHints = priorIssues.length > 0
-    ? ` [Fixing: ${priorIssues.map(i => i.gate).join(', ')}]`
-    : '';
+  const strength = known_strengths[0] ?? 'pattern recognition';
+  const conceptText = firstSentence(
+    rag.concept_explanations[0] ?? `${subtopic} follows one clear rule you can apply in order.`
+  );
+  const exampleText = firstSentence(
+    rag.worked_examples[0] ?? `Walk through ${subtopic} step by step and check each operation.`
+  );
+  const analogyText = firstSentence(
+    rag.analogies[0] ?? `${subtopic} is like following a game map from spawn to objective.`
+  );
+  const misconceptionWord =
+    rag.misconception_data[0]?.split(/\W+/).find((w) => w.length > 4)?.toLowerCase() ??
+    error_classification;
 
-  // Extract first terminal sentence only, so multi-sentence RAG strings don't blow card limits.
-  // Splits on terminal punctuation followed by whitespace or end of string (same rule as the checker).
-  function firstSentence(text: string): string {
-    const match = text.match(/^.+?[.!?]+(?=\s|$)/);
-    return match ? match[0] : text;
-  }
+  const issueHint =
+    priorIssues.length > 0
+      ? ` Fixing: ${priorIssues.map((i) => i.gate).join(', ')}.`
+      : '';
 
-  const conceptText = firstSentence(rag.concept_explanations[0] ?? `${subtopic} works by applying the core rule step by step.`);
-  const exampleText = firstSentence(rag.worked_examples[0] ?? `Apply the rule to ${subtopic} step by step and check each line.`);
-  const conceptKeyword = conceptText.split(' ').find(w => w.length > 4) ?? subtopic;
-  const exampleKeyword = exampleText.split(' ').find(w => w.length > 4) ?? subtopic;
-  const misconceptionKeyword = rag.misconception_data[0]?.split(' ').find(w => w.length > 4) ?? error_classification;
-  const strengthNote = known_strengths.length > 0
-    ? `You already get ${known_strengths[0]}, so`
-    : 'You are lowkey closer than you think —';
-  const analogy = firstSentence(rag.analogies[0] ?? `think of ${subtopic} like leveling up in a game.`);
-
-  const cards: CrashCourseCard[] = [
+  const sections = [
     {
-      stage: 'specific_mistake',
-      title: `No cap — the ${error_classification} glitch`,
-      body: `${strengthNote} this is one fix: your ${error_classification} on ${subtopic}. We speedrun past it now.${issueHints}`.slice(0, 280),
+      label: 'hook' as const,
+      text: `No cap, ${subtopic} can feel messy, so here is a 60-second speedrun to clear the glitch.`,
     },
     {
-      stage: 'intuition_analogy',
-      title: 'Intuition unlocked — vibe check',
-      body: `Lowkey, ${analogy} Your brain lag on ${subtopic} is just a wrong mental map. No cap.`.slice(0, 280),
+      label: 'misconception_callout' as const,
+      text: `The main issue is ${error_classification}: a brain lag moment where a quick guess feels done. You are strong at ${strength}, so this pattern is fixable.${issueHint}`,
     },
     {
-      stage: 'actual_concept',
-      title: `The actual rule — ${conceptKeyword} edition`,
-      body: `Here is the legit concept: ${conceptText} Main character arc unlocked.`.slice(0, 280),
+      label: 'intuition_bridge' as const,
+      text: `Lowkey use this analogy: ${analogyText} It gives each step a reason instead of random NPC moves.`,
     },
     {
-      stage: 'worked_example',
-      title: 'Speedrun the example',
-      body: `${exampleKeyword} example: ${exampleText} NPC moves avoided.`.slice(0, 280),
+      label: 'concept_explanation' as const,
+      text: `Actual concept, grounded and clean: ${conceptText} Main character arc begins when you follow the same rule order every time.`,
     },
     {
-      stage: 'practice_question',
-      title: 'Vibe check — your turn',
-      body: `Your turn: solve ${subtopic} and dodge the ${error_classification} trap (watch for ${misconceptionKeyword}). No cap, main character mode activated.`.slice(0, 280),
+      label: 'worked_example' as const,
+      text: `Worked example speedrun: ${exampleText} Each line follows the previous line, so your final answer stays traceable.`,
+    },
+    {
+      label: 'practice_cta' as const,
+      text: `Your turn: solve one new ${subtopic} problem now, explain each step aloud, dodge ${error_classification}, and catch ${misconceptionWord} early. No cap, repeat twice this week.`,
     },
   ];
 
-  const sora_video_prompt = {
-    engine: 'sora.ai',
-    video_objective: `Create an engaging educational video explaining ${subtopic} and correcting the ${error_classification} mistake using a brainrot aesthetic.`,
-    scenes: [
-      {
-        on_screen_visual: `A dynamic montage of someone struggling with ${subtopic}, overlaid with glitch effects.`,
-        narration_prompt: `POV: You hit the ${error_classification} wall. Total lag.`
-      },
-      {
-        on_screen_visual: `A glowing, high-tech breakdown showing ${conceptKeyword} working flawlessly.`,
-        narration_prompt: `But the fix is literally just this: ${conceptText}`
-      },
-      {
-        on_screen_visual: `A side-by-side comparison of the wrong way and the right way to solve the problem.`,
-        narration_prompt: `Watch this speedrun: ${exampleText}`
-      }
-    ]
+  const fullScript = sections.map((s) => s.text.trim()).join(' ').trim();
+  const script: VoiceoverScript = {
+    title: `${topic}: ${subtopic} in 60 seconds`,
+    target_duration_seconds: 60,
+    sections,
+    full_script: fullScript,
+    word_count: wordCount(fullScript),
   };
 
-  return { cards, sora_video_prompt, attempts: 1, checker_history: [] };
+  return { script, attempts: 1, checker_history: [] };
 }
-
-// --- Checker ---
 
 export type CrashCourseChecker = (
   output: CrashCourseAgentOutput,
-  input: CrashCourseAgentInput
+  input: CrashCourseAgentInput,
+  attempt: number
 ) => AgentCheckerResult;
 
 export function defaultCrashCourseChecker(
@@ -137,134 +142,113 @@ export function defaultCrashCourseChecker(
   attempt: number
 ): AgentCheckerResult {
   const issues: AgentCheckerIssue[] = [];
-  const { cards } = output;
+  const { script } = output;
+  const sections = script.sections;
 
-  // Gate: card count
-  if (cards.length !== 5) {
-    issues.push({ gate: 'card-count-exact-5', message: `Expected 5 cards, got ${cards.length}` });
+  if (sections.length !== 6) {
+    issues.push({ gate: 'section-count', message: `Expected 6 sections, got ${sections.length}` });
   }
 
-  // Gate: stage order
-  for (let i = 0; i < Math.min(cards.length, CARD_STAGE_ORDER.length); i++) {
-    if (cards[i].stage !== CARD_STAGE_ORDER[i]) {
+  for (let i = 0; i < Math.min(sections.length, SECTION_ORDER.length); i++) {
+    if (sections[i].label !== SECTION_ORDER[i]) {
       issues.push({
-        gate: 'required-stage-order',
-        message: `Card ${i + 1} must be stage '${CARD_STAGE_ORDER[i]}', got '${cards[i].stage}'`,
+        gate: 'section-order',
+        message: `Section ${i + 1} must be '${SECTION_ORDER[i]}', got '${sections[i].label}'`,
       });
     }
   }
 
-  // Gate: body length and sentence count
-  // Sentence splitter: only split on terminal punctuation followed by whitespace or end of string,
-  // so embedded dots (method calls, decimals) are not counted as sentence breaks.
-  for (let i = 0; i < cards.length; i++) {
-    if (cards[i].body.length > 280) {
-      issues.push({
-        gate: 'one-screen-card-size',
-        message: `Card ${i + 1} body exceeds 280 characters (${cards[i].body.length})`,
-      });
-    }
-    const sentences = cards[i].body.split(/[.!?]+(?=\s|$)/).filter(s => s.trim().length > 0);
-    if (sentences.length > 3) {
-      issues.push({
-        gate: 'one-screen-card-size',
-        message: `Card ${i + 1} body has ${sentences.length} sentences (max 3)`,
-      });
-    }
+  const computedWordCount = wordCount(script.full_script);
+  if (computedWordCount < 120 || computedWordCount > 180 || script.word_count !== computedWordCount) {
+    issues.push({
+      gate: 'word-count-range',
+      message: `Word count must be 120-180 and match full_script count (declared=${script.word_count}, computed=${computedWordCount})`,
+    });
   }
 
-  // Gate: no discouraging language
-  for (let i = 0; i < cards.length; i++) {
-    if (DISCOURAGING_WORDS.test(cards[i].body) || DISCOURAGING_WORDS.test(cards[i].title)) {
-      issues.push({
-        gate: 'supportive-tone',
-        message: `Card ${i + 1} contains discouraging language`,
-      });
-    }
+  const shortSection = sections.find((section) => wordCount(section.text) < 5);
+  if (shortSection) {
+    issues.push({
+      gate: 'section-non-empty',
+      message: `Section '${shortSection.label}' must have at least 5 words`,
+    });
   }
 
-  // Gate: no bias
-  const allText = cards.map(c => c.title + ' ' + c.body).join(' ');
-  for (const pattern of BIAS_PATTERNS) {
-    if (pattern.test(allText)) {
-      issues.push({ gate: 'no-bias-risk', message: 'Content contains demographic bias pattern' });
-      break;
-    }
+  const allText = sections.map((s) => s.text).join(' ');
+  if (DISCOURAGING_WORDS.test(allText) || DISCOURAGING_WORDS.test(script.title)) {
+    issues.push({ gate: 'supportive-tone', message: 'Script contains discouraging language' });
   }
 
-  // Gate: brainrot tone (≥ 2 markers across the deck)
-  const deckText = allText.toLowerCase();
-  const foundMarkers = BRAINROT_MARKERS.filter(m => deckText.includes(m));
-  if (foundMarkers.length < 2) {
+  if (BIAS_PATTERNS.some((pattern) => pattern.test(allText))) {
+    issues.push({ gate: 'no-bias-risk', message: 'Script contains demographic bias pattern' });
+  }
+
+  const foundMarkers = BRAINROT_MARKERS.filter((marker) => allText.toLowerCase().includes(marker));
+  if (foundMarkers.length < 3) {
     issues.push({
       gate: 'brainrot-tone',
-      message: `Only ${foundMarkers.length} brainrot markers found (need ≥ 2): ${BRAINROT_MARKERS.join(', ')}`,
+      message: `Only ${foundMarkers.length} brainrot markers found; need at least 3`,
     });
   }
 
-  // Gate: error targeting — card 1 body must contain error_classification
-  if (cards.length >= 1 && !cards[0].body.toLowerCase().includes(input.error_classification.toLowerCase())) {
+  const misconceptionSection = sections.find((section) => section.label === 'misconception_callout');
+  if (!misconceptionSection || !misconceptionSection.text.toLowerCase().includes(input.error_classification.toLowerCase())) {
     issues.push({
-      gate: 'diagnosed-error-targeting',
-      message: `Card 1 body must mention the error classification '${input.error_classification}'`,
+      gate: 'error-targeting',
+      message: `misconception_callout must mention '${input.error_classification}'`,
     });
   }
 
-  // Gate: RAG grounding — card 3 must share ≥ 1 keyword with concept_explanations
-  if (cards.length >= 3 && input.rag.concept_explanations.length > 0) {
-    const conceptWords = new Set(
-      input.rag.concept_explanations.join(' ').toLowerCase().split(/\W+/).filter(w => w.length > 4)
-    );
-    const card3Words = cards[2].body.toLowerCase().split(/\W+/);
-    const hasOverlap = card3Words.some(w => w.length > 4 && conceptWords.has(w));
-    if (!hasOverlap) {
+  const conceptSection = sections.find((section) => section.label === 'concept_explanation');
+  if (conceptSection && input.rag.concept_explanations.length > 0) {
+    const conceptKeywords = keywordSet(input.rag.concept_explanations);
+    if (!hasKeywordOverlap(conceptSection.text, conceptKeywords)) {
       issues.push({
         gate: 'concept-grounding',
-        message: 'Card 3 must share ≥ 1 keyword with rag.concept_explanations',
+        message: 'concept_explanation must share keyword with rag.concept_explanations',
       });
     }
   }
 
-  // Gate: RAG grounding — card 4 must share ≥ 1 keyword with worked_examples
-  if (cards.length >= 4 && input.rag.worked_examples.length > 0) {
-    const exampleWords = new Set(
-      input.rag.worked_examples.join(' ').toLowerCase().split(/\W+/).filter(w => w.length > 4)
-    );
-    const card4Words = cards[3].body.toLowerCase().split(/\W+/);
-    const hasOverlap = card4Words.some(w => w.length > 4 && exampleWords.has(w));
-    if (!hasOverlap) {
+  const exampleSection = sections.find((section) => section.label === 'worked_example');
+  if (exampleSection && input.rag.worked_examples.length > 0) {
+    const exampleKeywords = keywordSet(input.rag.worked_examples);
+    if (!hasKeywordOverlap(exampleSection.text, exampleKeywords)) {
       issues.push({
-        gate: 'worked-example-grounding',
-        message: 'Card 4 must share ≥ 1 keyword with rag.worked_examples',
+        gate: 'example-grounding',
+        message: 'worked_example must share keyword with rag.worked_examples',
       });
     }
   }
 
-  // Gate: misconception targeting — card 5 must reference error label or misconception_data keywords
-  if (cards.length >= 5) {
-    const card5Text = cards[4].body.toLowerCase();
-    const hasErrorLabel = card5Text.includes(input.error_classification.toLowerCase());
-    const misconceptionWords = new Set(
-      input.rag.misconception_data.join(' ').toLowerCase().split(/\W+/).filter(w => w.length > 4)
-    );
-    const hasMisconceptionKeyword = card5Text.split(/\W+/).some(w => w.length > 4 && misconceptionWords.has(w));
+  const practiceSection = sections.find((section) => section.label === 'practice_cta');
+  if (practiceSection) {
+    const practiceText = practiceSection.text.toLowerCase();
+    const misconceptionKeywords = keywordSet(input.rag.misconception_data);
+    const hasErrorLabel = practiceText.includes(input.error_classification.toLowerCase());
+    const hasMisconceptionKeyword = hasKeywordOverlap(practiceText, misconceptionKeywords);
     if (!hasErrorLabel && !hasMisconceptionKeyword) {
       issues.push({
         gate: 'practice-targeting',
-        message: 'Card 5 must reference the error label or rag.misconception_data keywords',
+        message: 'practice_cta must reference error label or misconception keywords',
       });
     }
   }
 
+  const joinedSections = sections.map((s) => s.text.trim()).join(' ').trim();
+  if (script.full_script.trim() !== joinedSections) {
+    issues.push({
+      gate: 'full-script-coherence',
+      message: 'full_script must equal concatenated section texts',
+    });
+  }
 
   return { passed: issues.length === 0, issues, attempt };
 }
 
-// --- Control Loop ---
-
 export interface CrashCourseAgentDeps {
   maker?: CrashCourseMaker;
-  checker?: (output: CrashCourseAgentOutput, input: CrashCourseAgentInput, attempt: number) => AgentCheckerResult;
+  checker?: CrashCourseChecker;
 }
 
 const MAX_ATTEMPTS = 3;
@@ -286,10 +270,9 @@ export async function runCrashCourseAgent(
 
     checkerHistory.push(checkerResult);
 
-    // Accumulate issues (never replace — prevent whack-a-mole regressions)
     for (const issue of checkerResult.issues) {
       const alreadyTracked = accumulatedIssues.some(
-        i => i.gate === issue.gate && i.message === issue.message
+        (tracked) => tracked.gate === issue.gate && tracked.message === issue.message
       );
       if (!alreadyTracked) {
         accumulatedIssues.push(issue);
@@ -303,6 +286,5 @@ export async function runCrashCourseAgent(
     }
   }
 
-  // Fail-open: return last draft (student sees it; no crash)
   return lastOutput!;
 }

@@ -2,6 +2,7 @@ import type {
   WeeklyLearningState,
   WeeklyInsightsAgentOutput,
   WeeklyInsightsRecap,
+  WeeklyInsightsSummaryKPIs,
   MainCharacterSection,
   FlopEraSection,
   GhostTopicSection,
@@ -65,6 +66,28 @@ function buildQuestItems(state: WeeklyLearningState, flopTopic: string): WeeklyQ
   return [flopItem, ghostItem, habitItem];
 }
 
+// --- Summary KPI extraction ---
+
+function extractSummaryKPIs(
+  recap: WeeklyInsightsRecap,
+  input: WeeklyLearningState
+): WeeklyInsightsSummaryKPIs {
+  const allTopics = [...input.improved_topics, ...input.declined_topics];
+  const accuracy_this_week =
+    allTopics.length > 0
+      ? allTopics.reduce((sum, t) => sum + t.accuracy_rate, 0) / allTopics.length
+      : recap.flop_era.accuracy_rate;
+
+  return {
+    top_topic: recap.main_character.topic,
+    top_gain: recap.main_character.mastery_delta,
+    accuracy_this_week,
+    days_active: input.days_active,
+    sessions_count: input.sessions_count,
+    quest_count: recap.weekly_quest.length,
+  };
+}
+
 // --- Maker ---
 
 export type WeeklyInsightsMaker = (
@@ -125,7 +148,7 @@ export function defaultWeeklyInsightsMaker(
     weekly_quest,
   };
 
-  return { recap, attempts: 1, checker_history: [] };
+  return { recap, summary_kpis: extractSummaryKPIs(recap, input), attempts: 1, checker_history: [] };
 }
 
 // --- Checker ---

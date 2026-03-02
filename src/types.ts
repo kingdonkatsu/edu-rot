@@ -8,7 +8,30 @@ export interface LMSEvent {
   is_correct: boolean;
 }
 
+// --- Mastery and Errors ---
+
+export type MasteryLevel = 'novice' | 'developing' | 'proficient' | 'mastered';
+
+export type ErrorClassification =
+  | 'careless_mistake'
+  | 'lucky_guess'
+  | 'conceptual_gap'
+  | 'procedural_error'
+  | 'misread_question'
+  | 'stagnation'
+  | 'decay'
+  | 'none';
+
 // --- Persisted State ---
+
+export interface InteractionRecord {
+  timestamp: string;
+  concept_tag: string;
+  is_correct: boolean;
+  p_mastery: number;
+  ema: number;
+  error_classification: ErrorClassification;
+}
 
 export interface StudentConceptState {
   student_id: string;
@@ -16,12 +39,14 @@ export interface StudentConceptState {
   p_mastery: number;
   stability: number;
   last_interaction_at: string | null;
+  first_interaction_at: string | null;
   ema: number;
   attempt_count: number;
   correct_count: number;
   streak_correct: number;
   streak_incorrect: number;
   recent_results: boolean[];
+  interaction_history: InteractionRecord[];
   rapid_fire_counter: number;
   last_event_id: string | null;
   updated_at: string;
@@ -45,13 +70,13 @@ export interface BKTResult {
   lucky_guess: boolean;
 }
 
+export type Trend = 'improving' | 'declining' | 'stable' | 'stagnant';
+
 export interface EMAResult {
   ema_previous: number;
   ema_current: number;
   trend: Trend;
 }
-
-export type Trend = 'improving' | 'declining' | 'stable' | 'stagnant';
 
 // --- Flags ---
 
@@ -74,44 +99,27 @@ export interface InterventionResult {
   context: Record<string, string | number | boolean>;
 }
 
-// --- Mastery Level ---
-
-export type MasteryLevel = 'novice' | 'developing' | 'proficient' | 'mastered';
-
 // --- Agent Types ---
 
-export type ErrorClassification =
-  | 'careless_mistake'
-  | 'lucky_guess'
-  | 'conceptual_gap'
-  | 'procedural_error'
-  | 'misread_question'
-  | 'stagnation'
-  | 'decay'
-  | 'none';
-
-export type CrashCourseCardStage =
-  | 'specific_mistake'
-  | 'intuition_analogy'
-  | 'actual_concept'
+export type VoiceoverSectionLabel =
+  | 'hook'
+  | 'misconception_callout'
+  | 'intuition_bridge'
+  | 'concept_explanation'
   | 'worked_example'
-  | 'practice_question';
+  | 'practice_cta';
 
-export interface CrashCourseCard {
-  stage: CrashCourseCardStage;
+export interface VoiceoverScriptSection {
+  label: VoiceoverSectionLabel;
+  text: string;
+}
+
+export interface VoiceoverScript {
   title: string;
-  body: string;
-}
-
-export interface SoraVideoScene {
-  on_screen_visual: string;
-  narration_prompt: string;
-}
-
-export interface SoraVideoPrompt {
-  engine: string;
-  video_objective: string;
-  scenes: SoraVideoScene[];
+  target_duration_seconds: number;
+  sections: VoiceoverScriptSection[];
+  full_script: string;
+  word_count: number;
 }
 
 export interface AgentCheckerIssue {
@@ -141,8 +149,7 @@ export interface CrashCourseAgentInput {
 }
 
 export interface CrashCourseAgentOutput {
-  cards: CrashCourseCard[];
-  sora_video_prompt?: SoraVideoPrompt;
+  script: VoiceoverScript;
   attempts: number;
   checker_history: AgentCheckerResult[];
   video_url?: string;
@@ -219,8 +226,184 @@ export interface WeeklyInsightsRecap {
   weekly_quest: WeeklyQuestItem[];
 }
 
+export interface WeeklyInsightsSummaryKPIs {
+  top_topic: string;
+  top_gain: number;
+  accuracy_this_week: number;
+  days_active: number;
+  sessions_count: number;
+  quest_count: number;
+}
+
 export interface WeeklyInsightsAgentOutput {
   recap: WeeklyInsightsRecap;
+  summary_kpis: WeeklyInsightsSummaryKPIs;
+  attempts: number;
+  checker_history: AgentCheckerResult[];
+}
+
+// --- Analytics ---
+
+export interface ConceptVelocity {
+  concept_tag: string;
+  mastery_delta: number;
+  elapsed_hours: number;
+  velocity_per_hour: number;
+}
+
+export interface LearningVelocityResult {
+  student_id: string;
+  window_hours: number;
+  mastery_delta: number;
+  elapsed_hours: number;
+  velocity_per_hour: number;
+  by_concept: ConceptVelocity[];
+}
+
+export interface EngagementScoreResult {
+  student_id: string;
+  score: number;
+  components: {
+    frequency: number;
+    duration: number;
+    streak: number;
+    consistency: number;
+  };
+  weighted: {
+    frequency: number;
+    duration: number;
+    streak: number;
+    consistency: number;
+  };
+}
+
+export interface ForgettingProjectionPoint {
+  days: number;
+  projected_mastery: number;
+}
+
+export interface ForgettingProjectionSeries {
+  concept_tag: string;
+  current_mastery: number;
+  points: ForgettingProjectionPoint[];
+}
+
+export interface ForgettingProjectionResult {
+  student_id: string;
+  days: number[];
+  projections: ForgettingProjectionSeries[];
+}
+
+export interface ReviewScheduleItem {
+  concept_tag: string;
+  current_mastery: number;
+  threshold: number;
+  recommended_review_at: string;
+  hours_until_review: number;
+}
+
+export interface SpacedRepetitionScheduleResult {
+  student_id: string;
+  threshold: number;
+  recommendations: ReviewScheduleItem[];
+}
+
+export interface ErrorHeatmapCell {
+  concept_tag: string;
+  error_classification: ErrorClassification;
+  count: number;
+}
+
+export interface ErrorHeatmapResult {
+  student_id: string;
+  concepts: string[];
+  error_labels: ErrorClassification[];
+  cells: ErrorHeatmapCell[];
+}
+
+export interface MasteryTimelinePoint {
+  timestamp: string;
+  concept_tag: string;
+  p_mastery: number;
+}
+
+export interface EMATimelinePoint {
+  timestamp: string;
+  concept_tag: string;
+  ema: number;
+}
+
+export interface AccuracyTimelinePoint {
+  timestamp: string;
+  cumulative_accuracy: number;
+}
+
+export interface ActivityHeatmapCell {
+  day_of_week: number;
+  hour_of_day: number;
+  count: number;
+}
+
+export interface TopicMasteryPoint {
+  concept_tag: string;
+  p_mastery: number;
+}
+
+export interface SummaryKPIs {
+  total_attempts: number;
+  overall_accuracy: number;
+  current_streak: number;
+  best_streak: number;
+  concepts_attempted: number;
+  concepts_mastered: number;
+}
+
+export interface DashboardAnalyticsResponse {
+  student_id: string;
+  learning_velocity: LearningVelocityResult;
+  engagement: EngagementScoreResult;
+  forgetting_curves: ForgettingProjectionResult;
+  review_schedule: SpacedRepetitionScheduleResult;
+  error_heatmap: ErrorHeatmapResult;
+  mastery_timeline: MasteryTimelinePoint[];
+  ema_timeline: EMATimelinePoint[];
+  topic_mastery: TopicMasteryPoint[];
+  cumulative_accuracy: AccuracyTimelinePoint[];
+  weekly_activity_heatmap: ActivityHeatmapCell[];
+  summary_kpis: SummaryKPIs;
+}
+
+// --- Media ---
+
+export interface TTSRequest {
+  script: string | VoiceoverScript;
+  student_id?: string;
+  topic?: string;
+  output_basename?: string;
+}
+
+export interface TTSResult {
+  audio_url: string;
+  duration_seconds: number;
+  blob_path: string;
+}
+
+export interface VideoAssemblyRequest {
+  audio_url: string;
+  background_key: string;
+  output_basename?: string;
+}
+
+export interface VideoAssemblyResult {
+  video_url: string;
+  duration_seconds: number;
+  blob_path: string;
+}
+
+export interface CrashCourseVideoPipelineResponse {
+  script: VoiceoverScript;
+  audio: TTSResult;
+  video: VideoAssemblyResult;
   attempts: number;
   checker_history: AgentCheckerResult[];
   video_url?: string;

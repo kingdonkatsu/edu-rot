@@ -2,144 +2,261 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edu-Rot Pipeline Agent Dashboard</title>
-    <link rel="stylesheet" href="style.css">
-    <link
-        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500&display=swap"
-        rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edu-Rot Pipeline Agent Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500&display=swap"
+    rel="stylesheet">
 </head>
 
 <body>
-    <div class="glow-bg"></div>
-    <header>
-        <h1>Edu-Rot <span>Agents</span></h1>
-        <p>Data Analytics Pipeline for AI-Powered EdTech</p>
-    </header>
+  <div class="glow-bg"></div>
+  <header>
+    <h1>Edu-Rot <span>Agents</span></h1>
+    <p>AI-powered learning agents with script, media, and analytics pipelines</p>
+  </header>
 
-    <main class="dashboard">
-        <!-- Crash Course Agent Section -->
-        <section class="agent-panel" id="crash-course-panel">
-            <div class="panel-header">
-                <div class="icon bg-violet">CC</div>
-                <h2>Crash Course Agent</h2>
+  <main class="dashboard">
+    <section class="agent-panel" id="crash-course-panel">
+      <div class="panel-header">
+        <div class="icon bg-violet">CC</div>
+        <h2>Crash Course Agent</h2>
+      </div>
+
+      <div class="panel-content">
+        <p class="description">Generates a brainrot-style voiceover script (6 sections, ~1 minute) targeted at the
+          student's misconception.</p>
+
+        <form id="crash-course-form">
+          <div class="input-group">
+            <label for="cc-fixture-select">Select Student Persona:</label>
+            <select id="cc-fixture-select" class="dropdown-select">
+              <option value="">Loading personas...</option>
+            </select>
+          </div>
+
+          <button type="submit" class="primary-btn btn-violet" id="btn-cc">
+            <span class="btn-text">Run Crash Course pipeline</span>
+            <div class="loader hidden"></div>
+          </button>
+        </form>
+
+        <div class="result-container hidden" id="cc-result">
+          <div class="result-header">
+            <h3>Script Output</h3>
+            <span class="badge" id="cc-attempts">Attempts: 1</span>
+          </div>
+
+          <div class="script-meta">
+            <h4 id="cc-script-title"></h4>
+            <div class="script-tags">
+              <span class="tag" id="cc-script-duration">60s</span>
+              <span class="tag" id="cc-script-words">150 words</span>
+            </div>
+          </div>
+
+          <div class="script-sections" id="cc-script-sections"></div>
+
+          <div class="full-script-card">
+            <h4>Full Script</h4>
+            <p id="cc-full-script"></p>
+          </div>
+        </div>
+
+        <button type="button" class="primary-btn btn-violet" id="btn-cc-video" disabled style="margin-top: 1.5rem;">
+          <span class="btn-text">Generate Brainrot Video</span>
+          <div class="loader hidden"></div>
+        </button>
+
+        <div id="cc-video-result" class="hidden">
+          <h3>Brainrot Video</h3>
+          <video id="cc-video-player" controls width="100%" class="hidden"></video>
+          <div id="cc-video-mock" class="hidden">
+            Mock mode — add Azure credentials to generate real video
+            <br>
+            <code></code>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="agent-panel" id="weekly-insights-panel">
+      <div class="panel-header">
+        <div class="icon bg-cyan">WI</div>
+        <h2>Weekly Insights Agent</h2>
+      </div>
+
+      <div class="panel-content">
+        <p class="description">Generates a weekly review summarizing improvements, declines, and a personalized weekly
+          quest.</p>
+
+        <form id="weekly-insights-form">
+          <div class="input-group">
+            <label for="wi-fixture-select">Select Student Persona:</label>
+            <select id="wi-fixture-select" class="dropdown-select">
+              <option value="">Loading personas...</option>
+            </select>
+          </div>
+
+          <button type="submit" class="primary-btn btn-cyan" id="btn-wi">
+            <span class="btn-text">Run Weekly Insights pipeline</span>
+            <div class="loader hidden"></div>
+          </button>
+        </form>
+
+        <div class="result-container hidden" id="wi-result">
+          <div class="result-header">
+            <h3>Agent Recap</h3>
+            <span class="badge" id="wi-attempts">Attempts: 1</span>
+          </div>
+
+          <div class="insight-cards">
+            <div class="insight-card highlight-glow">
+              <div class="card-role">Main Character</div>
+              <h4 id="wi-main-topic"></h4>
+              <p class="narrative" id="wi-main-narrative"></p>
+              <div class="stats right">
+                <span class="stat-box" id="wi-main-stats"></span>
+              </div>
             </div>
 
-            <div class="panel-content">
-                <p class="description">Generates a brainrot-style 5-card deck and Sora.ai video prompt targeted at a
-                    specific student misconception.</p>
-
-                <form id="crash-course-form">
-                    <div class="input-group">
-                        <label for="cc-fixture-select">Select Student Persona:</label>
-                        <select id="cc-fixture-select" class="dropdown-select">
-                            <option value="">Loading personas...</option>
-                        </select>
-                    </div>
-
-                    <button type="submit" class="primary-btn btn-violet" id="btn-cc">
-                        <span class="btn-text">Run Crash Course pipeline</span>
-                        <div class="loader hidden"></div>
-                    </button>
-                </form>
-
-                <div class="result-container hidden" id="cc-result">
-                    <div class="result-header">
-                        <h3>Agent Output</h3>
-                        <span class="badge" id="cc-attempts">Attempts: 1</span>
-                    </div>
-
-                    <div class="cards-grid" id="cc-cards-container">
-                        <!-- Cards injected here via JS -->
-                    </div>
-
-                    <div class="sora-prompt-card">
-                        <h4>Sora.ai Video Prompt Payload</h4>
-                        <div class="sora-meta">
-                            <span class="tag">Engine: <span id="cc-engine">sora.ai</span></span>
-                            <span class="tag">Tone: brainrot, playful</span>
-                        </div>
-                        <p class="objective" id="cc-objective"></p>
-                        <div class="scenes-list" id="cc-scenes-container">
-                            <!-- Scenes injected here -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Weekly Insights Agent Section -->
-        <section class="agent-panel" id="weekly-insights-panel">
-            <div class="panel-header">
-                <div class="icon bg-cyan">WI</div>
-                <h2>Weekly Insights Agent</h2>
+            <div class="insight-card red-glow">
+              <div class="card-role">Flop Era</div>
+              <h4 id="wi-flop-topic"></h4>
+              <p class="narrative" id="wi-flop-narrative"></p>
+              <div class="stats right">
+                <span class="stat-box status-error" id="wi-flop-stats"></span>
+              </div>
             </div>
 
-            <div class="panel-content">
-                <p class="description">Generates a weekly review summarizing improvements, declines, and prescribes a
-                    personalized weekly quest.</p>
-
-                <form id="weekly-insights-form">
-                    <div class="input-group">
-                        <label for="wi-fixture-select">Select Student Persona:</label>
-                        <select id="wi-fixture-select" class="dropdown-select">
-                            <option value="">Loading personas...</option>
-                        </select>
-                    </div>
-
-                    <button type="submit" class="primary-btn btn-cyan" id="btn-wi">
-                        <span class="btn-text">Run Weekly Insights pipeline</span>
-                        <div class="loader hidden"></div>
-                    </button>
-                </form>
-
-                <div class="result-container hidden" id="wi-result">
-                    <div class="result-header">
-                        <h3>Agent Recap</h3>
-                        <span class="badge" id="wi-attempts">Attempts: 1</span>
-                    </div>
-
-                    <div class="insight-cards">
-                        <!-- Main Character -->
-                        <div class="insight-card highlight-glow">
-                            <div class="card-role">Main Character</div>
-                            <h4 id="wi-main-topic"></h4>
-                            <p class="narrative" id="wi-main-narrative"></p>
-                            <div class="stats right">
-                                <span class="stat-box" id="wi-main-stats"></span>
-                            </div>
-                        </div>
-
-                        <!-- Flop Era -->
-                        <div class="insight-card red-glow">
-                            <div class="card-role">Flop Era</div>
-                            <h4 id="wi-flop-topic"></h4>
-                            <p class="narrative" id="wi-flop-narrative"></p>
-                            <div class="stats right">
-                                <span class="stat-box status-error" id="wi-flop-stats"></span>
-                            </div>
-                        </div>
-
-                        <!-- Plot Twist -->
-                        <div class="insight-card cyan-glow">
-                            <div class="card-role">Plot Twist</div>
-                            <p class="narrative large" id="wi-plot-twist"></p>
-                        </div>
-                    </div>
-
-                    <div class="quest-section">
-                        <h4>Weekly Quest</h4>
-                        <ul class="quest-list" id="wi-quest-list">
-                            <!-- Quests injected here -->
-                        </ul>
-                    </div>
-                </div>
+            <div class="insight-card cyan-glow">
+              <div class="card-role">Plot Twist</div>
+              <p class="narrative large" id="wi-plot-twist"></p>
             </div>
-        </section>
-    </main>
+          </div>
 
-    <script src="app.js"></script>
+          <div class="summary-kpi-row hidden" id="wi-summary-kpis">
+            <div class="kpi-card cyan-kpi">
+              <div class="kpi-label">Top Topic</div>
+              <div class="kpi-value" id="wi-kpi-top-topic">—</div>
+            </div>
+            <div class="kpi-card cyan-kpi">
+              <div class="kpi-label">Top Gain</div>
+              <div class="kpi-value" id="wi-kpi-top-gain">—</div>
+            </div>
+            <div class="kpi-card cyan-kpi">
+              <div class="kpi-label">Accuracy This Week</div>
+              <div class="kpi-value" id="wi-kpi-accuracy">—</div>
+            </div>
+            <div class="kpi-card cyan-kpi">
+              <div class="kpi-label">Days Active</div>
+              <div class="kpi-value" id="wi-kpi-days-active">—</div>
+            </div>
+            <div class="kpi-card cyan-kpi">
+              <div class="kpi-label">Sessions</div>
+              <div class="kpi-value" id="wi-kpi-sessions">—</div>
+            </div>
+            <div class="kpi-card cyan-kpi">
+              <div class="kpi-label">Quests</div>
+              <div class="kpi-value" id="wi-kpi-quests">—</div>
+            </div>
+          </div>
+
+          <div class="quest-section">
+            <h4>Weekly Quest</h4>
+            <ul class="quest-list" id="wi-quest-list"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <section class="analytics-panel">
+    <div class="analytics-header-row">
+      <h2>Student Analytics Dashboard</h2>
+      <div class="input-group compact">
+        <label for="analytics-student-select">Student</label>
+        <select id="analytics-student-select" class="dropdown-select"></select>
+      </div>
+    </div>
+    <p class="description" id="analytics-status">Choose a student to load analytics.</p>
+
+    <div class="kpi-row" id="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Attempts</div>
+        <div class="kpi-value" id="kpi-total-attempts">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Overall Accuracy</div>
+        <div class="kpi-value" id="kpi-overall-accuracy">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Current Streak</div>
+        <div class="kpi-value" id="kpi-current-streak">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Best Streak</div>
+        <div class="kpi-value" id="kpi-best-streak">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Concepts Attempted</div>
+        <div class="kpi-value" id="kpi-concepts-attempted">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Concepts Mastered</div>
+        <div class="kpi-value" id="kpi-concepts-mastered">—</div>
+      </div>
+    </div>
+
+    <div class="analytics-grid">
+      <div class="chart-card">
+        <h3>Engagement Score</h3>
+        <div id="dash-engagement"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Topic Mastery</h3>
+        <div id="dash-topic-mastery"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Error Pattern Heatmap</h3>
+        <div id="dash-error-heatmap"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Learning Velocity</h3>
+        <div id="dash-velocity"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Mastery Over Time</h3>
+        <div id="dash-mastery"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Forgetting Curve Projection</h3>
+        <div id="dash-forgetting"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Spaced Repetition Schedule</h3>
+        <div id="dash-spaced-repetition"></div>
+      </div>
+      <div class="chart-card">
+        <h3>EMA Momentum Trend</h3>
+        <div id="dash-ema"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Cumulative Accuracy</h3>
+        <div id="dash-cumulative-accuracy"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Weekly Activity Heatmap</h3>
+        <div id="dash-weekly-activity"></div>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js"></script>
+  <script src="dashboard.js"></script>
+  <script src="app.js"></script>
 </body>
 
 </html>

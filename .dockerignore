@@ -11,3 +11,6 @@ __pycache__/
 *.md
 !README.md
 _ai_temp/
+.claude/
+tests/
+src/
