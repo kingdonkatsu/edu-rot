@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { runCrashCourseAgent } from '../services/crash-course-agent.js';
 import { validateCrashCourseInput } from '../utils/validation.js';
 import type { ITTSService } from '../adapters/azure-tts.js';
-import type { IVideoAssemblyService } from '../services/video-assembly.js';
+import { MockVideoAssemblyService, type IVideoAssemblyService } from '../services/video-assembly.js';
 import type { TTSRequest, VideoAssemblyRequest } from '../types.js';
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -60,7 +60,12 @@ export function createMediaHandlers(ttsService: ITTSService, videoService: IVide
         output_basename: `${input.student_id}-${input.topic}-${input.subtopic}`,
       });
 
-      const video = await videoService.assemble({
+      // If TTS is in mock mode, force mock video assembly to avoid FFmpeg trying to fetch an unreachable mock URL.
+      const effectiveVideoService = audio.audio_url.startsWith('https://mock.')
+        ? new MockVideoAssemblyService()
+        : videoService;
+
+      const video = await effectiveVideoService.assemble({
         audio_url: audio.audio_url,
         background_key: input.topic,
         output_basename: `${input.student_id}-${input.topic}-${input.subtopic}`,

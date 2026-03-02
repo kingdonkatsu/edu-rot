@@ -95,4 +95,40 @@ describe('media handler video endpoints', () => {
     expect(payload.audio).toBeDefined();
     expect(payload.video).toBeDefined();
   });
+
+  it('falls back to mock video assembly when tts returns mock audio URL', async () => {
+    const handlers = createMediaHandlers(new MockTTSService(), {
+      async assemble(request) {
+        if (request.audio_url.startsWith('https://mock.')) {
+          throw new Error('Cannot fetch mock audio URL');
+        }
+        return { video_url: 'https://real.blob.local/video.mp4', duration_seconds: 60, blob_path: 'video.mp4' };
+      },
+    });
+    const response = mockResponse();
+
+    await handlers.postCrashCourseVideo(
+      {
+        body: {
+          student_id: 'student-1',
+          topic: 'Algebra',
+          subtopic: 'Quadratic equations',
+          error_classification: 'lucky_guess',
+          mastery_level: 'novice',
+          known_strengths: ['arithmetic'],
+          rag: {
+            concept_explanations: ['Quadratic equations have a standard form and predictable solving paths.'],
+            misconception_data: ['lucky_guess leads to skipped verification steps.'],
+            analogies: ['It is like choosing the right path in a split road.'],
+            worked_examples: ['Factor x squared minus five x plus six into two linear terms.'],
+          },
+        },
+      } as never,
+      response.res as never
+    );
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.payload as { video: { video_url: string } };
+    expect(payload.video.video_url).toContain('mock.blob.local');
+  });
 });
