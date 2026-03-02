@@ -47,3 +47,24 @@ export const STAGNATION_ESCALATION_ATTEMPTS = 15;
 
 // Validation
 export const TIMESTAMP_SKEW_TOLERANCE_MS = 60_000;
+
+// Analytics history + windows
+export const ANALYTICS_HISTORY_MAX_EVENTS = 500;
+export const VELOCITY_WINDOW_HOURS = 24;
+export const FORGETTING_PROJECTION_DAYS = [1, 3, 7, 14, 30] as const;
+export const SPACED_REPETITION_MASTERY_THRESHOLD = 0.7;
+export const SESSION_GAP_MINUTES = 45;
+
+// Engagement normalization targets
+export const ENGAGEMENT_TARGET_DAILY_FREQUENCY = 3;
+export const ENGAGEMENT_TARGET_SESSION_MINUTES = 20;
+export const ENGAGEMENT_TARGET_STREAK_DAYS = 7;
+export const ENGAGEMENT_TARGET_ACTIVE_DAYS = 7;
+
+// Engagement weights
+export const ENGAGEMENT_WEIGHTS = {
+  frequency: 0.3,
+  duration: 0.2,
+  streak: 0.2,
+  consistency: 0.3,
+} as const;

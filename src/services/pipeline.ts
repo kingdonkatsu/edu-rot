@@ -3,6 +3,9 @@ import type {
   MasteryLevel,
   PipelineResponse,
   StudentConceptState,
+  AnalyticsFlags,
+  ErrorClassification,
+  InteractionRecord,
 } from '../types.js';
 import type { IStateStore } from '../adapters/state-store.js';
 import { createInitialState } from '../adapters/state-store.js';
@@ -20,6 +23,7 @@ import {
   MASTERY_NOVICE_MAX,
   MASTERY_DEVELOPING_MAX,
   MASTERY_PROFICIENT_MAX,
+  ANALYTICS_HISTORY_MAX_EVENTS,
 } from '../utils/constants.js';
 
 export async function runPipeline(
@@ -47,7 +51,7 @@ export async function runPipeline(
   const intervention = computeIntervention(flags, stateWithResults, masteryLevel, ema.ema_current);
 
   const updatedState = buildUpdatedState(
-    state, event, bkt, ema, rapidFireCounter, updatedRecentResults
+    state, event, bkt, ema, rapidFireCounter, updatedRecentResults, flags
   );
   await store.upsert(updatedState);
 
@@ -88,27 +92,51 @@ function buildUpdatedState(
   bkt: { updated_mastery: number },
   ema: { ema_current: number },
   rapidFireCounter: number,
-  recentResults: boolean[]
+  recentResults: boolean[],
+  flags: AnalyticsFlags
 ): StudentConceptState {
   const newStability = event.is_correct
     ? original.stability + STABILITY_CORRECT_INCREMENT
     : Math.max(STABILITY_MIN, original.stability - STABILITY_INCORRECT_DECREMENT);
+  const errorClassification = deriveErrorClassification(flags);
+  const interactionRecord: InteractionRecord = {
+    timestamp: event.timestamp,
+    concept_tag: event.concept_tag,
+    is_correct: event.is_correct,
+    p_mastery: bkt.updated_mastery,
+    ema: ema.ema_current,
+    error_classification: errorClassification,
+  };
+  const interactionHistory = [...original.interaction_history, interactionRecord];
+  const boundedHistory = interactionHistory.length > ANALYTICS_HISTORY_MAX_EVENTS
+    ? interactionHistory.slice(-ANALYTICS_HISTORY_MAX_EVENTS)
+    : interactionHistory;
 
   return {
     ...original,
     p_mastery: bkt.updated_mastery,
     stability: newStability,
     last_interaction_at: event.timestamp,
+    first_interaction_at: original.first_interaction_at ?? event.timestamp,
     ema: ema.ema_current,
     attempt_count: original.attempt_count + 1,
     correct_count: original.correct_count + (event.is_correct ? 1 : 0),
     streak_correct: event.is_correct ? original.streak_correct + 1 : 0,
     streak_incorrect: event.is_correct ? 0 : original.streak_incorrect + 1,
     recent_results: recentResults,
+    interaction_history: boundedHistory,
     rapid_fire_counter: rapidFireCounter,
     last_event_id: event.event_id,
     updated_at: event.timestamp,
   };
+}
+
+function deriveErrorClassification(flags: AnalyticsFlags): ErrorClassification {
+  if (flags.careless_mistake) return 'careless_mistake';
+  if (flags.lucky_guess) return 'lucky_guess';
+  if (flags.decay_warning) return 'decay';
+  if (flags.stagnation) return 'stagnation';
+  return 'none';
 }
 
 export function determineMasteryLevel(pMastery: number): MasteryLevel {

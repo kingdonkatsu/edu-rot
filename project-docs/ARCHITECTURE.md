@@ -1,52 +1,96 @@
 # Architecture
 
-> Data Analytics Pipeline for AI-Powered EdTech Platform
-
 ## Overview
 
-Stateless, event-driven HTTP API that receives LMS interaction events and produces a rich student knowledge state. A single Express process runs three sequential algorithms per event (Ebbinghaus Decay, Bayesian Knowledge Tracing, Exponential Moving Average), evaluates analytical flags, and returns an intervention recommendation.
+Edu-rot is an Express-based AI learning platform backend with a static web dashboard. It combines:
 
-State is persisted via an `IStateStore` adapter interface. The hackathon build uses an in-memory Map; swap to Cosmos DB by implementing the interface.
+- Event-driven mastery updates (Decay + BKT + EMA)
+- Two LLM-style agents (Crash Course and Weekly Insights)
+- Media generation pipeline (Azure TTS + FFmpeg)
+- Analytics API and Chart.js frontend
 
-## Components
+State is stored behind an adapter interface (`IStateStore`). The current implementation is in-memory for local/hackathon velocity.
+
+## Core Components
 
 | Component | Path | Responsibility |
-|-----------|------|----------------|
-| Server | `src/server.ts` | Express app, routes, health check |
-| Handler | `src/handlers/process-event.ts` | HTTP validation, error handling |
-| Pipeline | `src/services/pipeline.ts` | Orchestrates algorithm steps |
-| Decay | `src/services/decay.ts` | Ebbinghaus forgetting curve |
-| BKT | `src/services/bkt.ts` | Bayesian Knowledge Tracing |
-| EMA | `src/services/ema.ts` | Exponential Moving Average |
-| Flags | `src/services/flags.ts` | Analytical flag evaluation |
-| Intervention | `src/services/intervention.ts` | Priority + recommended actions |
-| State Store | `src/adapters/state-store.ts` | IStateStore interface + InMemoryStateStore |
+|---|---|---|
+| Server | `src/server.ts` | Route wiring, static hosting, service initialization |
+| State Adapter | `src/adapters/state-store.ts` | Student concept state persistence + lookup |
+| Event Handler | `src/handlers/process-event.ts` | Validates LMS events and runs event pipeline |
+| Pipeline Orchestrator | `src/services/pipeline.ts` | Decay -> BKT -> EMA -> flags -> intervention |
+| Crash Course Agent | `src/services/crash-course-agent.ts` | Voiceover script maker/checker control loop |
+| Weekly Insights Agent | `src/services/weekly-insights-agent.ts` | Weekly recap maker/checker control loop |
+| Analytics Services | `src/services/*.ts` | Velocity, engagement, forgetting, spaced repetition, heatmap |
+| Analytics Handler | `src/handlers/analytics.ts` | Dashboard + analytics endpoints |
+| Azure TTS Adapter | `src/adapters/azure-tts.ts` | Script-to-MP3 synthesis + Blob upload |
+| Video Assembly Service | `src/services/video-assembly.ts` | FFmpeg MP4 assembly + Blob upload |
+| Media Handler | `src/handlers/media.ts` | `/media/*` and crash-course/video orchestration |
+| Frontend | `public/*` | Agent panels + analytics dashboard rendering |
 
 ## Data Flow
 
-```
+### Event Processing
+
+```text
 POST /api/v1/events
-  -> Validate payload (400 on failure)
-  -> Load/init student-concept state
-  -> Detect rapid-fire guessing
-  -> Step 1: Ebbinghaus Decay (time-adjusted mastery prior)
-  -> Step 2: BKT Update (Bayesian posterior + transition)
-  -> Step 3: EMA Update (performance momentum)
-  -> Update stability, streaks, history
-  -> Evaluate flags (careless, lucky, decay, stagnation, improvement, mastery)
-  -> Compute intervention priority
-  -> Persist updated state
-  -> Return JSON response
+  -> validateLMSEvent
+  -> load or initialize StudentConceptState
+  -> computeDecay
+  -> computeBKT
+  -> computeEMA
+  -> evaluateFlags
+  -> computeIntervention
+  -> append bounded interaction_history
+  -> persist state
+  -> return PipelineResponse
 ```
 
-Critical: Decay runs before BKT so the Bayesian update uses a time-adjusted prior.
+### Crash Course Script Generation
 
-## Dependencies
+```text
+POST /api/v1/agents/crash-course
+  -> validateCrashCourseInput
+  -> runCrashCourseAgent (max 3 attempts)
+     -> defaultCrashCourseMaker
+     -> defaultCrashCourseChecker (12 gates)
+  -> return VoiceoverScript output
+```
 
-| Package | Purpose |
-|---------|---------|
-| express | HTTP server |
-| uuid | Event ID validation |
-| typescript | Type safety (strict mode) |
-| tsx | Dev runtime (watch mode) |
-| vitest | Test runner |
+### Crash Course Video Pipeline
+
+```text
+POST /api/v1/agents/crash-course/video
+  -> validate crash-course input
+  -> runCrashCourseAgent
+  -> ttsService.synthesize(script)
+  -> videoService.assemble(audio + background)
+  -> return script + audio + video URLs
+```
+
+### Analytics Dashboard
+
+```text
+GET /api/v1/analytics/:studentId/dashboard
+  -> stateStore.getAllForStudent(studentId)
+  -> compute analytics services
+  -> build timeline/heatmap aggregates
+  -> return dashboard payload
+```
+
+## State Model Notes
+
+`StudentConceptState` now tracks:
+
+- current mastery fields (`p_mastery`, `stability`, `ema`)
+- attempts/streak counters
+- bounded `interaction_history` for analytics
+- `first_interaction_at` and `last_interaction_at`
+
+This supports dashboard metrics without introducing a separate event-log store.
+
+## Runtime Strategy
+
+- If Azure config is present, use real Azure services.
+- If Azure config is missing, auto-fallback to mock TTS/video services.
+- This keeps local development and CI fully runnable without cloud credentials.
