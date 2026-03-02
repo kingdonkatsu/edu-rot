@@ -13,6 +13,15 @@ export function createWeeklyInsightsHandler() {
 
     try {
       const result = await runWeeklyInsightsAgent(validation.data!);
+
+      // Generate video for WeeklyInsights (using plot twist)
+      try {
+        const { generateBrainRotVideo } = await import('../services/video-service.js');
+        result.video_url = await generateBrainRotVideo(result.recap.plot_twist.insight, validation.data!.student_id);
+      } catch (vErr) {
+        console.error('[handleWeeklyInsights] Video generation failed:', vErr);
+      }
+
       res.status(200).json(result);
     } catch (err) {
       console.error('[handleWeeklyInsights] Agent error:', err);

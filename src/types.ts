@@ -145,6 +145,7 @@ export interface CrashCourseAgentOutput {
   sora_video_prompt?: SoraVideoPrompt;
   attempts: number;
   checker_history: AgentCheckerResult[];
+  video_url?: string;
 }
 
 export interface WeeklyTopicTrend {
@@ -222,6 +223,7 @@ export interface WeeklyInsightsAgentOutput {
   recap: WeeklyInsightsRecap;
   attempts: number;
   checker_history: AgentCheckerResult[];
+  video_url?: string;
 }
 
 // --- API Response ---
@@ -258,4 +260,5 @@ export interface PipelineResponse {
     streak_correct: number;
     streak_incorrect: number;
   };
+  video_url?: string;
 }
